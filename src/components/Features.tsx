@@ -51,24 +51,16 @@ export default function Features() {
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
           {features.map((feature, idx) => (
-            <motion.div
+            <div
               key={idx}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ 
-                duration: 0.5,
-                delay: idx * 0.05,
-                ease: [0.21, 0.47, 0.32, 0.98]
-              }}
-              viewport={{ once: true, margin: "-100px" }}
-              className="glass-card p-8 hover:border-blue-500/30 transition-colors group will-change-transform"
+              className="glass-card p-8 hover:border-blue-500/30 transition-colors group"
             >
               <div className="mb-6 p-3 bg-blue-500/10 rounded-xl w-fit group-hover:bg-blue-500/20 transition-colors">
                 {feature.icon}
               </div>
               <h3 className="text-xl font-bold mb-3">{feature.title}</h3>
               <p className="text-gray-400 leading-relaxed text-sm">{feature.description}</p>
-            </motion.div>
+            </div>
           ))}
         </div>
       </div>

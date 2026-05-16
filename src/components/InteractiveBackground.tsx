@@ -21,30 +21,16 @@ export default function InteractiveBackground() {
 
   return (
     <div className="fixed inset-0 -z-10 bg-[#050505] overflow-hidden pointer-events-none">
-      {/* Background Video */}
-      <div className="absolute inset-0 opacity-70 overflow-hidden">
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="w-full h-full object-cover brightness-[0.8]"
-        >
-          <source src="https://cdn.pixabay.com/video/2022/04/16/112905-691350419_large.mp4" type="video/mp4" />
-        </video>
-        <div className="absolute inset-0 bg-[#050505]/40" />
-      </div>
-      
-      {/* Primary Glow following cursor */}
+      {/* Glow following cursor (Simplified) */}
       <motion.div
         style={{
-          left: springX,
-          top: springY,
+          left: mouseX,
+          top: mouseY,
           translateX: '-50%',
           translateY: '-50%',
-          background: 'radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%)',
+          background: 'radial-gradient(circle, rgba(59, 130, 246, 0.05) 0%, transparent 70%)',
         }}
-        className="absolute w-[800px] h-[800px] rounded-full opacity-60 will-change-[left,top]"
+        className="absolute w-[600px] h-[600px] rounded-full opacity-40 pointer-events-none"
       />
 
       {/* Secondary slow floating blobs for atmosphere */}

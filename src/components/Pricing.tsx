@@ -58,17 +58,9 @@ export default function Pricing() {
 
         <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
           {filteredPlans.map((plan, idx) => (
-            <motion.div
+            <div
               key={plan.id}
-              initial={{ opacity: 0, y: 30 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ 
-                duration: 0.5,
-                delay: idx * 0.1,
-                ease: [0.21, 0.47, 0.32, 0.98]
-              }}
-              viewport={{ once: true, margin: "-100px" }}
-              className={`glass-card p-8 flex flex-col hover:border-blue-500/30 transition-all will-change-transform ${plan.recommended ? 'border-blue-500/50 ring-1 ring-blue-500/20 relative scale-[1.02] z-10' : ''}`}
+              className={`glass-card p-8 flex flex-col hover:border-blue-500/30 transition-all ${plan.recommended ? 'border-blue-500/50 ring-1 ring-blue-500/20 relative scale-[1.02] z-10' : ''}`}
             >
               {plan.recommended && (
                 <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full">
@@ -137,7 +129,7 @@ export default function Pricing() {
               >
                 Get Started
               </a>
-            </motion.div>
+            </div>
           ))}
         </div>
         
