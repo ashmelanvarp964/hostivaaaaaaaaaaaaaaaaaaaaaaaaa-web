@@ -42,20 +42,9 @@ export default function InteractiveBackground() {
           top: springY,
           translateX: '-50%',
           translateY: '-50%',
+          background: 'radial-gradient(circle, rgba(59, 130, 246, 0.1) 0%, transparent 70%)',
         }}
-        className="absolute w-[800px] h-[800px] rounded-full opacity-60"
-        animate={{
-          background: [
-            'radial-gradient(circle, rgba(59, 130, 246, 0.12) 0%, transparent 60%)',
-            'radial-gradient(circle, rgba(37, 99, 235, 0.08) 0%, transparent 60%)',
-            'radial-gradient(circle, rgba(59, 130, 246, 0.12) 0%, transparent 60%)',
-          ],
-        }}
-        transition={{
-          duration: 6,
-          repeat: Infinity,
-          ease: "easeInOut"
-        }}
+        className="absolute w-[800px] h-[800px] rounded-full opacity-60 will-change-[left,top]"
       />
 
       {/* Secondary slow floating blobs for atmosphere */}
@@ -65,11 +54,11 @@ export default function InteractiveBackground() {
           y: [0, -30, 30, 0],
         }}
         transition={{
-          duration: 20,
+          duration: 25,
           repeat: Infinity,
           ease: "linear"
         }}
-        className="absolute top-[15%] -left-[10%] w-[600px] h-[600px] bg-blue-600/[0.03] rounded-full blur-[120px]" 
+        className="absolute top-[15%] -left-[10%] w-[600px] h-[600px] bg-blue-600/[0.02] rounded-full blur-[120px] will-change-transform" 
       />
       
       <motion.div 
@@ -78,32 +67,24 @@ export default function InteractiveBackground() {
           y: [0, 40, -40, 0],
         }}
         transition={{
-          duration: 25,
+          duration: 30,
           repeat: Infinity,
           ease: "linear"
         }}
-        className="absolute bottom-[10%] -right-[5%] w-[700px] h-[700px] bg-indigo-600/[0.04] rounded-full blur-[140px]" 
+        className="absolute bottom-[10%] -right-[5%] w-[700px] h-[700px] bg-indigo-600/[0.03] rounded-full blur-[140px] will-change-transform" 
       />
 
       {/* Subtle Grid Pattern */}
       <div 
-        className="absolute inset-0 opacity-[0.05]"
+        className="absolute inset-0 opacity-[0.03]"
         style={{
-          backgroundImage: `linear-gradient(rgba(255,255,255,0.1) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.1) 1px, transparent 1px)`,
-          backgroundSize: '80px 80px',
+          backgroundImage: `linear-gradient(rgba(255,255,255,0.05) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.05) 1px, transparent 1px)`,
+          backgroundSize: '100px 100px',
           maskImage: 'radial-gradient(circle at center, black, transparent 80%)'
         }}
       />
       
-      {/* Grain / Noise overlay for texture */}
-      <div className="absolute inset-0 opacity-[0.03] pointer-events-none mix-blend-overlay">
-        <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
-          <filter id="noiseFilter">
-            <feTurbulence type="fractalNoise" baseFrequency="0.65" numOctaves="3" stitchTiles="stitch" />
-          </filter>
-          <rect width="100%" height="100%" filter="url(#noiseFilter)" />
-        </svg>
-      </div>
+      {/* Heavy Grain overlay removed for performance */}
     </div>
   );
 }

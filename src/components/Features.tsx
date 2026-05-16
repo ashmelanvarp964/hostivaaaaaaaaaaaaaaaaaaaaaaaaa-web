@@ -53,11 +53,15 @@ export default function Features() {
           {features.map((feature, idx) => (
             <motion.div
               key={idx}
-              initial={{ opacity: 0, scale: 0.95 }}
-              whileInView={{ opacity: 1, scale: 1 }}
-              transition={{ delay: idx * 0.05 }}
-              viewport={{ once: true }}
-              className="glass-card p-8 hover:border-blue-500/30 transition-colors group"
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              transition={{ 
+                duration: 0.5,
+                delay: idx * 0.05,
+                ease: [0.21, 0.47, 0.32, 0.98]
+              }}
+              viewport={{ once: true, margin: "-100px" }}
+              className="glass-card p-8 hover:border-blue-500/30 transition-colors group will-change-transform"
             >
               <div className="mb-6 p-3 bg-blue-500/10 rounded-xl w-fit group-hover:bg-blue-500/20 transition-colors">
                 {feature.icon}
