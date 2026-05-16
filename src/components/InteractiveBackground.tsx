@@ -33,31 +33,31 @@ export default function InteractiveBackground() {
         className="absolute w-[600px] h-[600px] rounded-full opacity-40 pointer-events-none"
       />
 
-      {/* Secondary slow floating blobs for atmosphere */}
+      {/* Secondary slow floating blobs for atmosphere (Reduced blur for performance) */}
       <motion.div 
         animate={{
-          x: [0, 50, -50, 0],
-          y: [0, -30, 30, 0],
+          x: [0, 30, -30, 0],
+          y: [0, -20, 20, 0],
         }}
         transition={{
-          duration: 25,
+          duration: 35,
           repeat: Infinity,
           ease: "linear"
         }}
-        className="absolute top-[15%] -left-[10%] w-[600px] h-[600px] bg-blue-600/[0.02] rounded-full blur-[120px] will-change-transform" 
+        className="absolute top-[15%] -left-[10%] w-[500px] h-[500px] bg-blue-600/[0.015] rounded-full blur-[80px] pointer-events-none" 
       />
       
       <motion.div 
         animate={{
-          x: [0, -60, 60, 0],
-          y: [0, 40, -40, 0],
+          x: [0, -40, 40, 0],
+          y: [0, 30, -30, 0],
         }}
         transition={{
-          duration: 30,
+          duration: 40,
           repeat: Infinity,
           ease: "linear"
         }}
-        className="absolute bottom-[10%] -right-[5%] w-[700px] h-[700px] bg-indigo-600/[0.03] rounded-full blur-[140px] will-change-transform" 
+        className="absolute bottom-[10%] -right-[5%] w-[600px] h-[600px] bg-indigo-600/[0.02] rounded-full blur-[90px] pointer-events-none" 
       />
 
       {/* Subtle Grid Pattern */}

@@ -5,6 +5,7 @@ import path from "path";
 import { plans } from "./src/lib/plans.ts";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
+import { GoogleGenAI } from "@google/genai";
 
 async function startServer() {
   const app = express();
@@ -175,6 +176,50 @@ async function startServer() {
       createdAt: new Date().toISOString()
     });
     res.json({ success: true, orderId });
+  });
+
+  // AI Assistant Proxy
+  app.post("/api/ai/chat", async (req, res) => {
+    const { messages, systemInstruction } = req.body;
+    
+    if (!messages || !Array.isArray(messages)) {
+      return res.status(400).json({ error: "Invalid messages format" });
+    }
+
+    try {
+      const apiKey = process.env.GEMINI_API_KEY;
+      if (!apiKey) {
+        return res.status(500).json({ error: "GEMINI_API_KEY is not configured on the server." });
+      }
+
+      const ai = new GoogleGenAI({
+        apiKey: apiKey,
+        httpOptions: {
+          headers: {
+            'User-Agent': 'aistudio-build',
+          }
+        }
+      });
+
+      // Transform messages for Gemini format
+      const contents = messages.map(m => ({
+        role: m.role === "user" ? "user" : "model",
+        parts: [{ text: m.content }]
+      }));
+
+      const result = await ai.models.generateContent({
+        model: "gemini-3-flash-preview",
+        contents: contents,
+        config: {
+          systemInstruction: systemInstruction
+        }
+      });
+
+      res.json({ text: result.text });
+    } catch (error: any) {
+      console.error("Gemini Error:", error);
+      res.status(500).json({ error: error.message || "Failed to process AI request" });
+    }
   });
 
   app.post("/api/admin/approve-order", (req, res) => {

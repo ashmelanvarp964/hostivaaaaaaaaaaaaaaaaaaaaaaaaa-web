@@ -1,7 +1,6 @@
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { MessageSquare, Send, X, Bot, Loader2, User, RotateCcw, Activity } from "lucide-react";
-import { GoogleGenAI } from "@google/genai";
 import { Virtuoso } from "react-virtuoso";
 
 const BASE_SYSTEM_INSTRUCTION = `You are "Hostiva AI Assistant", a friendly and professional support expert for Hostiva. Your goal is to help users find the best hosting plan and answer questions about Hostiva's services.
@@ -129,22 +128,25 @@ export function AIAssistant() {
     setIsLoading(true);
 
     try {
-      const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
-      const chat = ai.chats.create({
-        model: "gemini-3-flash-preview",
-        config: {
-          systemInstruction: getSystemInstruction(),
-        },
+      const response = await fetch("/api/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [...messages, userMessage],
+          systemInstruction: getSystemInstruction()
+        })
       });
 
-      const response = await chat.sendMessage({ 
-        message: inputValue.trim() 
-      });
+      if (!response.ok) {
+        throw new Error("Failed to get AI response");
+      }
+
+      const data = await response.json();
 
       const assistantMessage: Message = {
         id: (Date.now() + 1).toString(),
         role: "assistant",
-        content: response.text || "I'm sorry, I couldn't process that request.",
+        content: data.text || "I'm sorry, I couldn't process that request.",
       };
 
       setMessages((prev) => [...prev, assistantMessage]);

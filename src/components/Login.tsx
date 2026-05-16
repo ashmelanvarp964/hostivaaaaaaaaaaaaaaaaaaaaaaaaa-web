@@ -227,7 +227,7 @@ export default function Login() {
               <div className="grid md:grid-cols-2 gap-6">
                 {/* Game Panel */}
                 <a 
-                  href="https://cp.hostiva.xyz" 
+                  href="https://cp.hostivaa.xyz" 
                   target="_blank" 
                   rel="noopener noreferrer"
                   className="group glass-card p-8 hover:border-blue-500/40 transition-all text-left relative overflow-hidden"

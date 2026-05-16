@@ -203,7 +203,7 @@ export default function Billing() {
                         </div>
                         {order.status === 'PAID' && (
                           <a 
-                            href="https://cp.hostiva.xyz" 
+                            href="https://cp.hostivaa.xyz" 
                             target="_blank" 
                             rel="noopener noreferrer"
                             className="p-2 bg-white/5 hover:bg-white/10 rounded-lg text-gray-400 hover:text-white transition-all"
