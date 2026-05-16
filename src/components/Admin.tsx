@@ -224,26 +224,7 @@ export default function Admin() {
       showNotification("Network error during order approval.", "error");
     }
   };
-  
-  const retryProvisioning = async (orderId: string) => {
-    try {
-      const res = await fetch("/api/admin/retry-provisioning", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ orderId })
-      });
-      const data = await res.json();
-      if (res.ok && data.success) {
-        showNotification("Server setup triggered successfully.", "success");
-        fetchData();
-      } else {
-        showNotification(data.message || "Retry setup failed.", "error");
-      }
-    } catch (e) {
-      showNotification("Could not reach provisioning server.", "error");
-    }
-  };
-
+ 
   const deleteCoupon = async (code: string) => {
     try {
       const res = await fetch(`/api/admin/coupons/${code}`, {
@@ -650,7 +631,7 @@ export default function Admin() {
                     <h3 className="font-bold text-blue-400 mb-4 text-sm">System Health</h3>
                     <div className="space-y-4">
                       {[
-                        { label: 'Pterodactyl Panel', status: 'Optimal' },
+                        { label: 'Website Panel', status: 'Optimal' },
                         { label: 'Discord Bot', status: 'Connected' },
                         { label: 'Auth Service', status: 'Optimal' },
                         { label: 'Database Node', status: 'Healthy' }
@@ -821,28 +802,15 @@ export default function Admin() {
                              </div>
                               {order.status === 'PAID' && (
                                <div className="flex items-center gap-2">
-                                 <span className={`text-[9px] uppercase font-bold tracking-widest ${
-                                   order.provisioningStatus === 'SUCCESS' ? 'text-green-500' : 
-                                   order.provisioningStatus === 'FAILED' ? 'text-red-500' : 'text-gray-400'
-                                 }`}>
-                                   Server: {order.provisioningStatus || 'PENDING'}
+                                 <span className="text-[9px] uppercase font-bold tracking-widest text-gray-400">
+                                   Status: Manual Deployment
                                  </span>
-                                 {order.provisioningStatus === 'SUCCESS' && (
-                                   <button 
-                                     onClick={() => fetchServerDetails(order)}
-                                     className="text-[9px] text-blue-400 hover:underline font-bold h-4 flex items-center"
-                                   >
-                                     DETAILS
-                                   </button>
-                                 )}
-                                 {order.provisioningStatus === 'FAILED' && (
-                                   <button 
-                                     onClick={() => retryProvisioning(order.orderId)}
-                                     className="text-[9px] text-blue-400 hover:underline font-bold h-4 flex items-center"
-                                   >
-                                     RETRY SETUP
-                                   </button>
-                                 )}
+                                 <button 
+                                   onClick={() => fetchServerDetails(order)}
+                                   className="text-[9px] text-blue-400 hover:underline font-bold h-4 flex items-center"
+                                 >
+                                   DETAILS
+                                 </button>
                                </div>
                              )}
                           </div>
@@ -1427,10 +1395,10 @@ export default function Admin() {
                 Close View
               </button>
               <button 
-                onClick={() => alert("Redirecting to Panel...")}
+                onClick={() => window.open("https://discord.gg/SkCuzpE53Q", "_blank")}
                 className="bg-blue-600 px-8 py-2 rounded-xl text-sm font-bold text-white hover:bg-blue-500 shadow-lg shadow-blue-600/20 transition-all font-display"
               >
-                Access Pterodactyl Panel
+                Deploy via Discord
               </button>
             </div>
           </motion.div>

@@ -1,17 +1,17 @@
+import "dotenv/config";
 import express from "express";
 import { createServer as createViteServer } from "vite";
 import path from "path";
-import { fileURLToPath } from "url";
 import { plans } from "./src/lib/plans.ts";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
-
 async function startServer() {
   const app = express();
   const PORT = 3000;
+  
+  // Use process.cwd() for path resolution to be safe in bundled CJS
+  const rootDir = process.cwd();
 
   app.use(express.json());
 
@@ -233,7 +233,7 @@ async function startServer() {
     });
     app.use(vite.middlewares);
   } else {
-    const distPath = path.join(process.cwd(), "dist");
+    const distPath = path.join(rootDir, "dist");
     app.use(express.static(distPath));
     app.get("*", (req, res) => {
       res.sendFile(path.join(distPath, "index.html"));
@@ -241,7 +241,15 @@ async function startServer() {
   }
 
   app.listen(PORT, "0.0.0.0", () => {
-    console.log(`Server running on http://localhost:${PORT}`);
+    console.log(`=========================================`);
+    console.log(`HOSTIVA SERVER RUNNING`);
+    console.log(`Environment: ${process.env.NODE_ENV || 'development'}`);
+    console.log(`Port: ${PORT}`);
+    console.log(`URL: http://localhost:${PORT}`);
+    console.log(`=========================================`);
+    if (process.env.NODE_ENV !== "production") {
+      console.log(`WARNING: Running in development mode.`);
+    }
   });
 }
 
