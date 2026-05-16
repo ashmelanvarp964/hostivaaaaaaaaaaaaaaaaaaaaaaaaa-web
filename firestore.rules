@@ -1,0 +1,58 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Default deny
+    match /{document=**} {
+      allow read, write: if false;
+    }
+
+    // Global helpers
+    function isSignedIn() { return request.auth != null; }
+    function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
+    function isAdmin() { return isSignedIn() && request.auth.token.email == 'ashmelanvarp964@gmail.com'; }
+    function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+
+    // User Profile
+    match /users/{uid} {
+      allow read: if isOwner(uid);
+      allow create: if isOwner(uid) && 
+        request.resource.data.keys().hasAll(['uid', 'email', 'createdAt']) &&
+        request.resource.data.keys().size() == 3 &&
+        request.resource.data.uid == uid &&
+        request.resource.data.email == request.auth.token.email;
+    }
+
+    // Orders
+    match /orders/{orderId} {
+      // User can see their own orders
+      allow list: if isSignedIn() && resource.data.userId == request.auth.uid;
+      allow get: if isSignedIn() && resource.data.userId == request.auth.uid;
+      
+      // User can create a pending order
+      allow create: if isSignedIn() &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.status == 'PENDING' &&
+        request.resource.data.keys().hasAll(['orderId', 'userId', 'planId', 'amount', 'status', 'createdAt']) &&
+        request.resource.data.orderId == orderId;
+
+      // Only Admin (or the server) should update status to PAID
+      // Since we don't have a complex Admin system yet, 
+      // we'll restrict updates to a hypothetical admin or leave it for server-side if needed.
+      // For now, let's allow the user to only see, not update.
+    }
+
+    // Settings
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    // Tickets
+    match /tickets/{ticketId} {
+      // Allow read if the user is an admin or is the owner of the ticket
+      allow read: if isSignedIn() && (isAdmin() || (resource != null && resource.data.userId == request.auth.uid));
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
+      allow update: if isSignedIn() && (isAdmin() || (resource != null && resource.data.userId == request.auth.uid));
+    }
+  }
+}
