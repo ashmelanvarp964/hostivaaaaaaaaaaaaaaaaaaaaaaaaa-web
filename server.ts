@@ -43,15 +43,15 @@ async function startServer() {
   const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || "$2a$10$9Gv/Yw.Zp5v.v.v.v.v.v.v.v.v.v.v.v.v.v.v.v.v.v.v.v.v.v.v."; // Placeholder hash
 
   app.post("/api/admin/login", (req, res) => {
-    const { email, password } = req.body;
+    const { password } = req.body;
     // Default password: Hostiva@2026#Secure!$Admin
     const masterPassword = process.env.ADMIN_PASSWORD || "Hostiva@2026#Secure!$Admin";
     
     if (password && password.trim() === masterPassword.trim()) {
-      console.log(`Admin login success for: ${email}`);
+      console.log(`Admin login success`);
       res.json({ success: true, token: "admin-session-" + crypto.randomBytes(16).toString("hex") });
     } else {
-      console.warn(`Admin login failed for ${email}: Incorrect password attempt.`);
+      console.warn(`Admin login failed: Incorrect password attempt.`);
       res.status(401).json({ success: false, message: "Invalid password" });
     }
   });

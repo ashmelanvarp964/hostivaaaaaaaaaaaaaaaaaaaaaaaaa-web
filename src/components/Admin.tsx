@@ -10,7 +10,6 @@ import { db } from "../lib/firebase";
 
 export default function Admin() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [loginError, setLoginError] = useState("");
   
@@ -90,14 +89,6 @@ export default function Admin() {
     e.preventDefault();
     setLoginError("");
 
-    // Email validation
-    const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    if (!email.trim() || !emailRegex.test(email.trim())) {
-      setLoginError("Please enter a valid email address.");
-      showNotification("Invalid email format.", "error");
-      return;
-    }
-
     if (!password.trim()) {
       setLoginError("Password is required.");
       return;
@@ -108,7 +99,6 @@ export default function Admin() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ 
-          email: email.trim(),
           password: password.trim() 
         })
       });
@@ -381,17 +371,6 @@ export default function Admin() {
           <p className="text-gray-400 text-sm mb-8">Authorization required to access Hostiva Control Panel.</p>
           
           <form onSubmit={handleLogin} className="space-y-4">
-            <div className="relative">
-              <Mail className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
-              <input 
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="Admin Email"
-                required
-                className="w-full bg-white/5 border border-white/10 rounded-xl pl-12 pr-4 py-3 outline-none focus:border-blue-500 transition-all text-white"
-              />
-            </div>
             <div className="relative">
               <Key className="absolute left-4 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
               <input 
