@@ -18,6 +18,7 @@ export interface Plan {
     nodeId?: number;
   };
   recommended?: boolean;
+  paymentLink?: string;
 }
 
 export const plans: Plan[] = [
@@ -86,7 +87,8 @@ export const plans: Plan[] = [
     category: "budget",
     hardware: "Intel Xeon Node",
     features: ["Affordable Node", "Basic Support", "SSD Storage"],
-    specs: { cpu: "120%", ram: "6GB", disk: "20GB", backups: 1, ports: 0, databases: 1, nestId: 1, eggId: 4, locationId: 2, nodeId: 8 }
+    specs: { cpu: "120%", ram: "6GB", disk: "20GB", backups: 1, ports: 0, databases: 1, nestId: 1, eggId: 4, locationId: 1, nodeId: 9 },
+    paymentLink: "https://rzp.io/rzp/0gS0Hmvr"
   },
   {
     id: "budget-epic",
@@ -95,8 +97,9 @@ export const plans: Plan[] = [
     category: "budget",
     hardware: "Intel Xeon Node",
     features: ["Affordable Node", "Basic Support", "SSD Storage"],
-    specs: { cpu: "180%", ram: "10GB", disk: "40GB", backups: 3, ports: 1, databases: 2, nestId: 1, eggId: 4, locationId: 2, nodeId: 8 },
-    recommended: true
+    specs: { cpu: "180%", ram: "10GB", disk: "40GB", backups: 3, ports: 1, databases: 2, nestId: 1, eggId: 4, locationId: 1, nodeId: 9 },
+    recommended: true,
+    paymentLink: "https://rzp.io/rzp/v1HXLLs1"
   },
   {
     id: "budget-pro",
@@ -105,7 +108,8 @@ export const plans: Plan[] = [
     category: "budget",
     hardware: "Intel Xeon Node",
     features: ["Affordable Node", "Standard Support", "SSD Storage"],
-    specs: { cpu: "250%", ram: "16GB", disk: "60GB", backups: 4, ports: 2, databases: 2, nestId: 1, eggId: 4, locationId: 2, nodeId: 8 }
+    specs: { cpu: "250%", ram: "16GB", disk: "60GB", backups: 4, ports: 2, databases: 2, nestId: 1, eggId: 4, locationId: 1, nodeId: 9 },
+    paymentLink: "https://rzp.io/rzp/ox9kJuqm"
   },
   {
     id: "budget-power",
@@ -114,7 +118,8 @@ export const plans: Plan[] = [
     category: "budget",
     hardware: "Intel Xeon Node",
     features: ["Affordable Node", "24/7 Support", "SSD Storage"],
-    specs: { cpu: "300%", ram: "24GB", disk: "80GB", backups: 5, ports: 3, databases: 3, nestId: 1, eggId: 4, locationId: 2, nodeId: 8 }
+    specs: { cpu: "300%", ram: "24GB", disk: "80GB", backups: 5, ports: 3, databases: 3, nestId: 1, eggId: 4, locationId: 1, nodeId: 9 },
+    paymentLink: "https://rzp.io/rzp/qP6wEcNv"
   },
   {
     id: "budget-mega",
@@ -123,6 +128,7 @@ export const plans: Plan[] = [
     category: "budget",
     hardware: "Intel Xeon Node",
     features: ["Affordable Node", "Priority Support", "SSD Storage"],
-    specs: { cpu: "400%", ram: "32GB", disk: "150GB", backups: 7, ports: 5, databases: 5, nestId: 1, eggId: 4, locationId: 2, nodeId: 8 }
+    specs: { cpu: "400%", ram: "32GB", disk: "150GB", backups: 7, ports: 5, databases: 5, nestId: 1, eggId: 4, locationId: 1, nodeId: 9 },
+    paymentLink: "https://rzp.io/rzp/bR6SsWm"
   }
 ];

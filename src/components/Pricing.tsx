@@ -118,7 +118,7 @@ export default function Pricing() {
               </ul>
 
               <a
-                href="https://discord.gg/SkCuzpE53Q"
+                href="https://billing.hostivaa.xyz"
                 target="_blank"
                 rel="noopener noreferrer"
                 className={`w-full py-4 rounded-xl font-bold text-center transition-all ${

@@ -1,67 +1,44 @@
 import React, { useState, useRef, useEffect } from "react";
 import { motion, AnimatePresence } from "motion/react";
-import { MessageSquare, Send, X, Bot, Loader2, User, RotateCcw, Activity } from "lucide-react";
+import { MessageSquare, Send, X, Bot, Loader2, User, RotateCcw, Activity, ThumbsUp, ThumbsDown } from "lucide-react";
 import { Virtuoso } from "react-virtuoso";
 
-const BASE_SYSTEM_INSTRUCTION = `You are "Hostiva AI Assistant", a friendly and professional support expert for Hostiva. Your goal is to help users find the best hosting plan and answer questions about Hostiva's services.
+const BASE_SYSTEM_INSTRUCTION = `You are "Hostiva Elite Support AI", an extremely knowledgeable, proactive, and friendly hosting consultant. Your tone is professional, technical yet accessible, and always customer-first.
 
-About Hostiva:
-- We provide premium and budget-friendly game server hosting.
-- We use high-performance hardware including Ryzen 7 7700X @ 4.491GHz (Performance) and Intel Xeon (Budget).
-- All plans feature NVMe/SSD storage, low latency network, and easy-to-use Pterodactyl control panel.
-- Pricing is in INR (Indian Rupee).
+Your Core Mission:
+1. Help users select the PERFECT hosting plan by analyzing their specific needs (game type, player count, modpacks, region).
+2. Proactively monitor 'Live Server Load' to ensure users aren't placed on stressed nodes. If a node is at >60% load, recommend a higher-tier plan or mention we are balancing capacity.
+3. Educate users on why Single-Threaded performance (GHz) is the king of game hosting.
 
-Plan Performance & Recommendations:
+Live Capabilities:
+- You have access to real-time network load data. Use it! 
+- If a user asks "How is the network?", summarize the load across Performance vs Budget categories.
+- Always include the specific Hardware name (e.g., Ryzen 7 7700X) when explaining performance.
 
-Recommendation Logic by Use-Case:
-- Vanilla Minecraft SMP (1-10 players): Classic Plan (Budget) or Premium Iron (Performance). Even budget plans handle vanilla well, but Premium Iron offers faster chunk loading.
-- Modded Minecraft (1-10 players): Premium Emerald (Performance). 24GB RAM is the sweet spot for modpacks like "All The Mods 9" or "RLCraft" to prevent memory leaks and stuttering.
-- Large Community SMP (30+ players): Premium Gold or Obsidian. Ryzen 7 7700X core speed is vital here to keep TPS at 20.0 as entities and terrain loading increase.
-- BungeeCord/Velocity Proxy: Classic or Premium Iron. Proxies don't need much RAM, but benefit from low latency.
-- Competitive CS2/Rust: Premium Gold. Higher CPU clock speed directly translates to lower server-side input lag.
+Plan Selection Protocol (INR Pricing):
+- < 10 players, Vanilla: Classic (Budget) or Premium Iron (Performance).
+- 10-30 players, Light Mods: Epic (Budget) or Premium Gold (Performance).
+- 30-50 players, Heavy Mods (ATM9/RLCraft): Premium Emerald (Performance) is our flagship recommendation.
+- 50+ players, Network: Premium Netherite or higher.
 
-Detailed Plan Breakdown:
-Performance Plans (Ryzen 7 7700X @ 4.491GHz - Best for Modded/Demanding Servers):
-- Premium Iron (8GB): Perfect for 20-40 players, light modpacks.
-- Premium Gold (16GB): Handle 50+ players or medium sized modpacks with ease.
-- Premium Emerald (24GB): Our recommended choice for all-around performance. handle large modpacks like ATM9 smoothly.
-- Premium Obsidian (32GB): For large communities (100+ players) or heavy forge modpacks.
-- Premium Netherite (48GB): Ultimate power for bungee networks or massive servers.
-- Premium Gladiator (64GB): The beast. For the most demanding networks.
+Response Formatting:
+- When you recommend a specific plan, use the tag [PLAN:plan-id] at the end of your recommendation to show a quick-buy card. You can suggest up to 2 plans per message.
+- Use bold text for technical specs.
+- Use short, punchy paragraphs.
 
-Budget Plans (Intel Xeon - Solid for Casual Play/SMPs):
-- Classic Plan (6GB): Good for 5-10 friends playing vanilla or light plugins.
-- Epic Plan (10GB): Solid for 15-20 players on a budget.
-- Pro Plan (16GB): Great value for small communities.
-- Power Plan (24GB): High capacity at an affordable price.
-- Mega Plan (32GB): For larger budget-conscious communities.
-
-Current Network Status (LIVE DATA):
+Current Server Network Context (MUST USE THIS FOR LIVE QUERIES):
 {NETWORK_LOAD_DATA}
 
-Common Questions:
-- "How many members can I have?" -> We don't limit slots, but player count is determined by RAM and CPU. For vanilla, rule of thumb is 200MB per player. For modded, 500MB+ per player.
-- "Why use Performance plans?" -> Minecraft and most game servers are "Single-Threaded" by nature. Imagine a 100-car race where only one lane is open. It doesn't matter if you have 64 lanes (cores), only the speed of that ONE lane (Single-core GHz) determines how fast the race finishes. Our Ryzen 7 7700X nodes @ 4.491GHz provide the extreme speed needed for that "one lane" to prevent lag even with complex modpacks.
-
-Technical Hardware Guidance:
-- CPU Core Speed vs. Core Count (The Most Important Choice):
-  - Single-Core Speed (GHz/IPC): This is the "Engine Power". Essential for 90% of game servers. Minecraft's "Tick" logic (calculating entities, physics, redstone) runs sequentially. It MUST finish calculating the current tick before starting the next. If the core is too slow, the server "falls behind" (TPS drops). Our Performance nodes use high-frequency Ryzen 7700X cores (@ 4.491GHz) to ensure ticks complete instantly.
-  - Core Count: This is like "Number of Engines". Useful only if you run MULTIPLE servers or heavy parallel tasks like BlueMap/Dynmap rendering in the background. For a single game instance, a CPU with 2 fast cores is significantly better than one with 20 slow cores.
-- RAM (Memory): This is the "Workspace".
-  - Vanilla SMP: 4-8GB is usually plenty for friend groups.
-  - Modded Servers: Need 8-16GB minimum. Large packs like ATM9 or RLcraft are memory-intensive due to thousands of added items and entities.
-- Storage (NVMe SSD): All our plans use NVMe storage which is up to 10x faster than traditional SSDs, ensuring lightning-fast world saving and chunk loading.
-
-Guidelines:
-- Be concise and helpful.
-- If a user asks for a recommendation, always suggest a plan based on their needs and CURRENT LOAD (if high, recommend a slightly larger plan).
-- Mention that Performance plans have much higher single-core speed which is critical for Minecraft.
-- Keep responses short but useful. Use bullet points for stats.`;
+Strict Guidelines:
+- Do NOT make up prices. Only use information provided in your instructions or known Hostiva facts.
+- If unsure about a technical requirement, ask the user for more details (e.g., "Which modpack are you planning to run?").
+- ALWAYS mention that we use NVMe SSDs across the board.`;
 
 interface Message {
   id: string;
   role: "user" | "assistant";
   content: string;
+  feedback?: 'positive' | 'negative';
 }
 
 interface LoadData {
@@ -70,6 +47,8 @@ interface LoadData {
   load: number;
   status: string;
   latency: number;
+  region?: string;
+  hardware?: string;
 }
 
 export function AIAssistant() {
@@ -112,6 +91,23 @@ export function AIAssistant() {
     setMessages([
       { id: Date.now().toString(), role: "assistant", content: "Hi! I've cleared our chat. How can I help you from here?" }
     ]);
+  };
+
+  const handleFeedback = async (messageId: string, type: 'positive' | 'negative') => {
+    // Optimistic update
+    setMessages(prev => prev.map(msg => 
+      msg.id === messageId ? { ...msg, feedback: type } : msg
+    ));
+
+    try {
+      await fetch("/api/ai/feedback", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ messageId, type })
+      });
+    } catch (error) {
+      console.error("Failed to submit feedback:", error);
+    }
   };
 
   const handleSendMessage = async () => {
@@ -159,6 +155,51 @@ export function AIAssistant() {
     } finally {
       setIsLoading(false);
     }
+  };
+
+  const renderMessageContent = (msg: Message) => {
+    if (msg.role === 'user') return msg.content;
+
+    // Parse for [PLAN:id] tags
+    const planRegex = /\[PLAN:([a-zA-Z0-9-]+)\]/g;
+    const planIds: string[] = [];
+    let cleanText = msg.content.replace(planRegex, (_, id) => {
+      planIds.push(id);
+      return '';
+    });
+
+    return (
+      <div className="space-y-3">
+        <div className="whitespace-pre-wrap">{cleanText.trim()}</div>
+        {planIds.length > 0 && (
+          <div className="grid gap-2 mt-2">
+            {planIds.map(id => {
+              // We'd ideally fetch plan details here, for now we map to names
+              const planName = id.split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
+              return (
+                <a 
+                  key={id}
+                  href={`#pricing`}
+                  onClick={() => setIsOpen(false)}
+                  className="flex items-center justify-between p-3 bg-blue-600/10 border border-blue-500/20 rounded-xl hover:bg-blue-600/20 transition-all group"
+                >
+                  <div className="flex items-center gap-3">
+                    <div className="w-8 h-8 rounded-lg bg-blue-500 flex items-center justify-center">
+                      <Activity className="w-4 h-4 text-white" />
+                    </div>
+                    <div>
+                      <p className="text-[10px] text-blue-400 font-bold uppercase tracking-wider">Recommended Plan</p>
+                      <p className="text-sm font-bold text-white">{planName}</p>
+                    </div>
+                  </div>
+                  <div className="text-blue-400 group-hover:translate-x-1 transition-transform">→</div>
+                </a>
+              );
+            })}
+          </div>
+        )}
+      </div>
+    );
   };
 
   return (
@@ -228,12 +269,32 @@ export function AIAssistant() {
                       }`}>
                         {msg.role === 'assistant' ? <Bot className="w-5 h-5" /> : <User className="w-5 h-5" />}
                       </div>
-                      <div className={`p-3 rounded-2xl text-sm leading-relaxed ${
-                        msg.role === 'user' 
-                          ? 'bg-blue-600 text-white rounded-tr-none' 
-                          : 'bg-white/5 text-gray-200 border border-white/5 rounded-tl-none whitespace-pre-wrap'
-                      }`}>
-                        {msg.content}
+                      <div className="flex flex-col gap-1 w-full">
+                        <div className={`p-3 rounded-2xl text-sm leading-relaxed ${
+                          msg.role === 'user' 
+                            ? 'bg-blue-600 text-white rounded-tr-none' 
+                            : 'bg-white/5 text-gray-200 border border-white/5 rounded-tl-none'
+                        }`}>
+                          {renderMessageContent(msg)}
+                        </div>
+                        {msg.role === 'assistant' && (
+                          <div className="flex items-center gap-2 mt-1 px-1">
+                            <button
+                              onClick={() => handleFeedback(msg.id, 'positive')}
+                              className={`p-1 rounded hover:bg-white/5 transition-colors ${msg.feedback === 'positive' ? 'text-green-400' : 'text-gray-500'}`}
+                              title="Helpful"
+                            >
+                              <ThumbsUp className="w-3 h-3" />
+                            </button>
+                            <button
+                              onClick={() => handleFeedback(msg.id, 'negative')}
+                              className={`p-1 rounded hover:bg-white/5 transition-colors ${msg.feedback === 'negative' ? 'text-red-400' : 'text-gray-500'}`}
+                              title="Not helpful"
+                            >
+                              <ThumbsDown className="w-3 h-3" />
+                            </button>
+                          </div>
+                        )}
                       </div>
                     </div>
                   </div>

@@ -6,6 +6,20 @@ import { plans } from "./src/lib/plans.ts";
 import crypto from "crypto";
 import bcrypt from "bcryptjs";
 import { GoogleGenAI } from "@google/genai";
+import Razorpay from "razorpay";
+import axios from "axios";
+import admin from "firebase-admin";
+
+const firebaseConfig = {
+  projectId: "studio-9246010153-3117d",
+  databaseId: "ai-studio-b20d1c8b-7eb6-43f6-8822-960764733504"
+};
+
+if (!admin.apps.length) {
+  admin.initializeApp(firebaseConfig);
+}
+
+const db = admin.firestore();
 
 async function startServer() {
   const app = express();
@@ -19,8 +33,46 @@ async function startServer() {
   // In-memory store for demo (Use a DB for production)
   const pendingOrders = new Map<string, any>();
   const orderHistory: any[] = [];
-  const coupons = new Map<string, { discount: number; expiresAt?: string; usedCount: number }>(); // Map to store coupon objects
-  let dynamicPlans = [...plans];
+  const coupons = new Map<string, { discount: number; expiresAt?: string; usedCount: number }>();
+  const dynamicPlans = [...plans];
+  const aiFeedback: any[] = [];
+
+  // Robust environment variable cleanup
+  const normalize = (val: string | undefined): string => {
+    if (!val) return "";
+    return val.trim().replace(/^["']|["']$/g, '').trim();
+  };
+
+  const getRazorpay = () => {
+    const key_id = normalize(process.env.RAZORPAY_KEY_ID);
+    const key_secret = normalize(process.env.RAZORPAY_KEY_SECRET);
+    
+    if (!key_id || !key_secret) {
+      console.warn("RAZORPAY_KEY_ID or RAZORPAY_KEY_SECRET missing in environment.");
+      return null;
+    }
+    
+    try {
+      return new Razorpay({ key_id, key_secret });
+    } catch (e) {
+      console.error("Razorpay SDK Initialization Error:", e);
+      return null;
+    }
+  };
+
+  // Simple Admin Middleware simulation
+  const isAdmin = (req: express.Request): boolean => {
+    const authHeader = req.headers["authorization"] || "";
+    return authHeader.startsWith("Bearer admin-session-");
+  };
+
+  const adminProtected = (req: express.Request, res: express.Response, next: express.NextFunction) => {
+    if (isAdmin(req)) {
+      next();
+    } else {
+      res.status(401).json({ error: "Unauthorized" });
+    }
+  };
 
   // Coupon Validation
   app.post("/api/validate-coupon", (req, res) => {
@@ -38,144 +90,188 @@ async function startServer() {
     }
   });
 
-  // Admin Endpoints
-  // Default password: Hostiva@2026#Secure!$Admin
-  const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || "$2a$10$9Gv/Yw.Zp5v.v.v.v.v.v.v.v.v.v.v.v.v.v.v.v.v.v.v.v.v.v.v."; // Placeholder hash
-
-  app.post("/api/admin/login", (req, res) => {
-    const { password } = req.body;
-    // Default password: Hostiva@2026#Secure!$Admin
-    const masterPassword = process.env.ADMIN_PASSWORD || "Hostiva@2026#Secure!$Admin";
+  // Health and Introspection
+  app.get("/api/health/integrations", async (req, res) => {
+    const normalize = (val: string | undefined) => val ? val.trim().replace(/^["']|["']$/g, '') : "";
     
-    if (password && password.trim() === masterPassword.trim()) {
-      console.log(`Admin login success`);
-      res.json({ success: true, token: "admin-session-" + crypto.randomBytes(16).toString("hex") });
-    } else {
-      console.warn(`Admin login failed: Incorrect password attempt.`);
-      res.status(401).json({ success: false, message: "Invalid password" });
+    // Razorpay Check
+    const key_id = normalize(process.env.RAZORPAY_KEY_ID);
+    const key_secret = normalize(process.env.RAZORPAY_KEY_SECRET);
+    const vite_key = normalize(process.env.VITE_RAZORPAY_KEY_ID);
+    
+    // Ptero Check
+    const ptero_url = process.env.PTERODACTYL_URL || "https://cp.hostiva.xyz";
+    const ptero_key = process.env.PTERODACTYL_API_KEY;
+    
+    let ptero_status = "Unknown";
+    try {
+      if (ptero_key) {
+        const pteroRes = await axios.get(`${ptero_url}/api/application/users`, {
+          headers: { 'Authorization': `Bearer ${ptero_key}` },
+          timeout: 3000
+        });
+        ptero_status = pteroRes.status === 200 ? "Connected" : `Error ${pteroRes.status}`;
+      } else {
+        ptero_status = "Key Missing";
+      }
+    } catch (e: any) {
+      ptero_status = `Failed: ${e.message}`;
     }
-  });
-
-  app.get("/api/admin/stats", (req, res) => {
-    const totalRevenue = orderHistory.reduce((sum, o) => sum + (o.amount || 0), 0);
-    const totalOrders = orderHistory.length;
-    const paidOrders = orderHistory.filter(o => o.status === "PAID").length;
-    const pendingCount = Array.from(pendingOrders.values()).filter(o => o.status === "PENDING").length;
-    
-    // Profit Calculation (Example: 70% of revenue is profit after costs)
-    const netProfit = totalRevenue * 0.7;
-
-    // Real-time Data for Charts (Mocking historical data for the last 7 days for the demo)
-    const days = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-    const revenueHistory = days.map((day) => ({
-      name: day,
-      revenue: Math.floor(Math.random() * 5000) + (paidOrders > 0 ? 1000 : 0),
-      signups: Math.floor(Math.random() * 20) + 5
-    }));
 
     res.json({
-      totalRevenue,
-      totalOrders,
-      paidOrders,
-      netProfit,
-      revenueHistory,
-      pendingAmount: Array.from(pendingOrders.values())
-        .filter(o => o.status === "PENDING")
-        .reduce((sum, o) => sum + (o.amount || 0), 0),
-      provisioningStats: [
-        { name: 'Success', value: paidOrders || 1 }, // Ensure at least 1 for chart visibility if empty
-        { name: 'Pending', value: pendingCount },
-        { name: 'Failed', value: 0 },
-      ]
+      razorpay: {
+        server_key_id: key_id ? `Present (${key_id.substring(0, 8)}...)` : "Missing",
+        server_key_secret: key_secret ? `Present (Length: ${key_secret.length})` : "Missing",
+        client_key_id: vite_key ? `Present (${vite_key.substring(0, 8)}...)` : "Missing",
+        match: (key_id && vite_key) ? (key_id === vite_key ? "YES" : "NO (ID Mismatch!)") : "N/A",
+      },
+      pterodactyl: {
+        url: ptero_url,
+        key: ptero_key ? "Present" : "Missing",
+        status: ptero_status
+      }
     });
   });
 
-  app.get("/api/admin/pending", (req, res) => {
-    res.json(Array.from(pendingOrders.entries()).map(([orderId, data]) => ({ orderId, ...data })));
-  });
+  app.post("/api/razorpay/create-order", async (req, res) => {
+    const { amount, currency = "INR", receipt } = req.body;
+    try {
+      const rzp = getRazorpay();
+      if (!rzp) {
+        return res.status(500).json({ error: "Razorpay keys are not configured" });
+      }
 
-  app.get("/api/admin/history", (req, res) => {
-    // Return both paid orders and pending orders for oversight
-    const paid = orderHistory;
-    const pending = Array.from(pendingOrders.entries())
-      .filter(([_, data]) => data.status === "PENDING")
-      .map(([orderId, data]) => ({ orderId, ...data }));
-    
-    res.json([...pending, ...paid]);
-  });
-
-  app.get("/api/admin/coupons", (req, res) => {
-    res.json(Array.from(coupons.entries()).map(([code, data]) => ({ code, ...data })));
-  });
- 
-  app.post("/api/admin/coupons", (req, res) => {
-    const { code, discount, expiresAt } = req.body;
-    coupons.set(code.toUpperCase(), { discount, expiresAt, usedCount: 0 });
-    res.json({ success: true });
-  });
-
-  app.delete("/api/admin/coupons/:code", (req, res) => {
-    const { code } = req.params;
-    if (coupons.has(code.toUpperCase())) {
-      coupons.delete(code.toUpperCase());
-      res.json({ success: true });
-    } else {
-      res.status(404).json({ success: false, message: "Coupon not found" });
+      const order = await rzp.orders.create({
+        amount: Math.round(amount * 100), // amount in the smallest currency unit (paise)
+        currency,
+        receipt,
+      });
+      res.json(order);
+    } catch (error: any) {
+      console.error("Razorpay Order Creation Error:", error);
+      const errorDetail = error.error?.description || error.message || "Unknown error";
+      res.status(500).json({ 
+        error: "Failed to create Razorpay order",
+        details: errorDetail
+      });
     }
   });
 
-  app.post("/api/admin/coupons/bulk", (req, res) => {
-    const { codes, action } = req.body;
-    if (!Array.isArray(codes)) return res.status(400).json({ success: false, message: "Invalid codes format" });
+  app.post("/api/razorpay/verify-payment", async (req, res) => {
+    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, planId, email, amount, userId } = req.body;
+    const body = razorpay_order_id + "|" + razorpay_payment_id;
 
-    codes.forEach(code => {
-      const upCode = code.toUpperCase();
-      if (action === "delete") {
-        coupons.delete(upCode);
-      } else if (action === "deactivate") {
-        const existing = coupons.get(upCode);
-        if (existing) {
-          coupons.set(upCode, { ...existing, expiresAt: new Date(Date.now() - 86400000).toISOString() }); // Expired yesterday
-        }
+    const signatureSecret = normalize(process.env.RAZORPAY_KEY_SECRET);
+    if (!signatureSecret) {
+      return res.status(500).json({ success: false, message: "Server configuration error" });
+    }
+
+    const expectedSignature = crypto
+      .createHmac("sha256", signatureSecret)
+      .update(body.toString())
+      .digest("hex");
+
+    if (expectedSignature === razorpay_signature) {
+      const orderId = `razor_${razorpay_payment_id}`;
+      const historyOrder: any = {
+        orderId,
+        razorpay_order_id,
+        razorpay_payment_id,
+        amount,
+        planId,
+        customerEmail: email,
+        userId: userId,
+        status: "PAID",
+        provisioningStatus: "AUTO",
+        createdAt: new Date().toISOString(),
+        completedAt: new Date().toISOString()
+      };
+      
+      orderHistory.push(historyOrder);
+      
+      // Auto Provision (Non-blocking)
+      provisionServer(email, planId).then(pteroServer => {
+        historyOrder.provisioningStatus = "SUCCESS";
+        historyOrder.pteroServerId = pteroServer.id;
+        historyOrder.pteroIdentifier = pteroServer.identifier;
+        console.log(`Successfully provisioned Pterodactyl server for ${email}`);
+      }).catch(provError => {
+        console.error("Auto-provisioning failed:", provError);
+        historyOrder.provisioningStatus = "FAILED";
+      });
+
+      res.json({ success: true, orderId });
+    } else {
+      res.status(400).json({ success: false, message: "Invalid payment signature" });
+    }
+  });
+
+  app.post("/api/razorpay/claim-server", async (req, res) => {
+    let { paymentId, email, planId, userId } = req.body;
+    
+    try {
+      const rzp = getRazorpay();
+      if (!rzp) return res.status(500).json({ error: "Razorpay keys not configured" });
+
+      // 1. Fetch payment details first to potentially get the plan from amount
+      const payment: any = await rzp.payments.fetch(paymentId);
+      
+      if (payment.status !== "captured" && payment.status !== "authorized") {
+        return res.status(400).json({ error: "Payment not completed or captured yet." });
       }
-    });
-    res.json({ success: true, message: `Successfully performed ${action} on ${codes.length} coupons.` });
-  });
 
-  app.get("/api/admin/plans", (req, res) => {
-    res.json(dynamicPlans);
-  });
+      // If planId was missing (e.g., direct claim), detect it from Razorpay amount
+      if (!planId) {
+        const amountInRs = payment.amount / 100;
+        // Find a plan matching this price (exact or including tax)
+        const matchedPlan = plans.find(p => p.price === amountInRs || Math.round(p.price * 1.18) === Math.round(amountInRs));
+        if (!matchedPlan) {
+          return res.status(400).json({ error: `Could not identify an automatic plan for ₹${amountInRs}. Please contact support.` });
+        }
+        planId = matchedPlan.id;
+      }
 
-  // Real-time network load for AI Assistant
-  app.get("/api/network-load", (req, res) => {
-    const loadData = dynamicPlans.map(plan => ({
-      id: plan.id,
-      name: plan.name,
-      load: Math.floor(Math.random() * 45) + 20, // 20-65% base load
-      status: "OPTIMAL",
-      latency: Math.floor(Math.random() * 15) + 5 // 5-20ms
-    }));
-    res.json(loadData);
-  });
+      // 2. Query Firestore for existing claim for this transaction
+      const ordersRef = db.collection("orders");
+      const existing = await ordersRef.where("transactionId", "==", paymentId).get();
+      if (!existing.empty) {
+        return res.status(400).json({ error: "This payment has already been claimed." });
+      }
 
-  app.post("/api/admin/plans", (req, res) => {
-    const newPlan = req.body;
-    dynamicPlans.push(newPlan);
-    res.json({ success: true });
-  });
+      // Check in-memory history too
+      const alreadyClaimed = orderHistory.find(o => o.razorpay_payment_id === paymentId);
+      if (alreadyClaimed) {
+        return res.status(400).json({ error: "This payment has already been claimed." });
+      }
 
-  // Manual Order Support
-  app.post("/api/create-order-info", (req, res) => {
-    const { planId, email, amount } = req.body;
-    const orderId = `man_${crypto.randomBytes(4).toString("hex")}`;
-    pendingOrders.set(orderId, {
-      amount,
-      planId,
-      customerEmail: email,
-      status: "PENDING",
-      createdAt: new Date().toISOString()
-    });
-    res.json({ success: true, orderId });
+      // 3. Provision the server
+      const pteroServer = await provisionServer(email, planId);
+
+      // 4. Record in history
+      const orderId = `claim_${paymentId}`;
+      const historyOrder: any = {
+        orderId,
+        razorpay_payment_id: paymentId,
+        amount: payment.amount / 100,
+        planId,
+        customerEmail: email,
+        userId: userId,
+        status: "PAID",
+        provisioningStatus: "SUCCESS",
+        pteroServerId: pteroServer.id,
+        pteroIdentifier: pteroServer.identifier,
+        createdAt: new Date().toISOString(),
+        completedAt: new Date().toISOString()
+      };
+      
+      orderHistory.push(historyOrder);
+
+      res.json({ success: true, message: "Server provisioned successfully!", order: historyOrder });
+    } catch (error: any) {
+      console.error("Claim Error:", error.response?.data || error);
+      const detail = error.response?.data?.errors?.[0]?.detail || error.message || "Unknown error";
+      res.status(500).json({ error: "Failed to claim server", details: detail });
+    }
   });
 
   // AI Assistant Proxy
@@ -222,52 +318,102 @@ async function startServer() {
     }
   });
 
-  app.post("/api/admin/approve-order", (req, res) => {
-    const { orderId } = req.body;
-    const order = Array.from(pendingOrders.entries()).find(([id]) => id === orderId);
-    if (order) {
-      const [id, data] = order;
-      const historyOrder = {
-        ...data,
-        orderId: id,
-        status: "PAID",
-        provisioningStatus: "MANUAL",
-        completedAt: new Date().toISOString()
-      };
-      orderHistory.push(historyOrder);
-      pendingOrders.delete(id);
-      res.json({ success: true });
-    } else {
-      res.status(404).json({ success: false, message: "Order not found" });
-    }
-  });
+  // Pterodactyl Provisioning Logic
+  async function provisionServer(email: string, planId: string) {
+    const PTERO_URL = process.env.PTERODACTYL_URL || "https://cp.hostiva.xyz";
+    const PTERO_API_KEY = process.env.PTERODACTYL_API_KEY || "ptla_idokfsWF4MZ1IYVCTlYrgiSvavw8vFvqaazsOrwlv7S";
+    
+    const plan = plans.find(p => p.id === planId);
+    if (!plan) throw new Error("Plan not found during provisioning");
 
-  app.get("/api/admin/server-logs/:orderId", async (req, res) => {
-    const { orderId } = req.params;
-    const order = orderHistory.find(o => o.orderId === orderId);
-    if (!order) {
-      return res.status(404).json({ success: false, message: "Order not found" });
-    }
-
-    const logs = [
-      `[${new Date(order.completedAt).toISOString()}] [System] Order approved manually`,
-      `[${new Date(order.completedAt).toISOString()}] [System] Waiting for manual provisioning to complete.`,
-    ];
-
-    res.json({ success: true, logs });
-  });
-
-  app.get("/api/admin/server-stats/:identifier", async (req, res) => {
-    // Manual stats
-    res.json({ 
-      success: true, 
-      stats: {
-        cpu_absolute: 0,
-        memory_bytes: 0,
-        network_rx_bytes: 0,
-        network_tx_bytes: 0
+    const pteroClient = axios.create({
+      baseURL: `${PTERO_URL}/api/application`,
+      timeout: 10000,
+      headers: {
+        'Authorization': `Bearer ${PTERO_API_KEY}`,
+        'Content-Type': 'application/json',
+        'Accept': 'Application/vnd.pterodactyl.v1+json',
       }
     });
+
+    try {
+      // 1. Find or Create User
+      let userId;
+      try {
+        const usersRes = await pteroClient.get(`/users?filter[email]=${email}`);
+        if (usersRes.data.data.length > 0) {
+          userId = usersRes.data.data[0].attributes.id;
+        } else {
+          const newUserRes = await pteroClient.post('/users', {
+            email: email,
+            username: email.split('@')[0] + Math.floor(Math.random() * 1000),
+            first_name: 'Customer',
+            last_name: 'Hostiva',
+          });
+          userId = newUserRes.data.attributes.id;
+        }
+      } catch (err: any) {
+        console.error("Ptero User Error:", err.response?.data || err.message);
+        throw err;
+      }
+
+      // 2. Create Server
+      const ram = parseInt(plan.specs.ram) * 1024;
+      const disk = parseInt(plan.specs.disk) * 1024;
+      const cpu = parseInt(plan.specs.cpu);
+
+      const performanceNode = process.env.PTERODACTYL_PERFORMANCE_NODE_ID || "1";
+      const budgetNode = process.env.PTERODACTYL_BUDGET_NODE_ID || "9";
+      const nodeId = plan.specs.nodeId || (plan.category === "performance" ? parseInt(performanceNode) : parseInt(budgetNode));
+      const locationId = plan.specs.locationId || 1;
+
+      const serverPayload = {
+        name: `${plan.name} - ${email.split('@')[0]}`,
+        user: userId,
+        egg: plan.specs.eggId || 4,
+        docker_image: "ghcr.io/pterodactyl/yolks:java_17",
+        startup: "java -Xms128M -Xmx{{SERVER_MEMORY}}M -Dterminal.jline=false -Dterminal.ansi=true -jar {{SERVER_JARFILE}}",
+        limits: {
+          memory: ram,
+          swap: 0,
+          disk: disk,
+          io: 500,
+          cpu: cpu,
+        },
+        feature_limits: {
+          databases: plan.specs.databases || 0,
+          backups: plan.specs.backups || 1,
+          allocations: plan.specs.ports || 1,
+        },
+        environment: {
+            SERVER_JARFILE: "server.jar",
+            VANILLA_VERSION: "latest"
+        },
+        deploy: {
+          locations: [locationId], 
+          nodes: [nodeId],
+          dedicated_ip: false,
+          port_range: [],
+        }
+      };
+
+      const createRes = await pteroClient.post('/servers', serverPayload);
+      return createRes.data.attributes;
+    } catch (err: any) {
+      console.error("Ptero Create Error:", err.response?.data || err.message);
+      throw err;
+    }
+  }
+
+  app.post("/api/ai/feedback", (req, res) => {
+    const { messageId, type } = req.body;
+    aiFeedback.push({
+      messageId,
+      type,
+      timestamp: new Date().toISOString()
+    });
+    console.log(`AI Feedback received: [${messageId}] ${type}`);
+    res.json({ success: true });
   });
 
   // Vite middleware for development

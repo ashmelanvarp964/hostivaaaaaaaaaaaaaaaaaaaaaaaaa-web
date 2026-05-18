@@ -65,6 +65,23 @@ export default function Login() {
           email: userCredential.user.email,
           createdAt: new Date().toISOString()
         });
+
+        // Sync with Pterodactyl (Non-blocking)
+        console.log("Initiating Game Panel sync for", email);
+        fetch("/api/pterodactyl/create-user", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ email, password })
+        }).then(async (res) => {
+          const data = await res.json();
+          if (data.success) {
+            console.log("Game Panel sync successful");
+          } else {
+            console.warn("Game Panel sync warning:", data.error);
+          }
+        }).catch(syncErr => {
+          console.error("Delayed sync failed:", syncErr);
+        });
       } else {
         await signInWithEmailAndPassword(auth, email, password);
       }
@@ -108,7 +125,7 @@ export default function Login() {
                     {isRegister ? "Create Account" : "Welcome Back"}
                   </h1>
                   <p className="text-gray-400 text-sm">
-                    {isRegister ? "Register to manage your billing and services." : "Sign in to access your portal."}
+                    {isRegister ? "Register to manage your billing and services. Your account will be automatically synced with our Game Panel." : "Sign in to access your portal."}
                   </p>
                 </div>
 
@@ -248,8 +265,10 @@ export default function Login() {
                 </a>
 
                 {/* Client Area / Support */}
-                <Link 
-                  to="/billing"
+                <a 
+                  href="https://billing.hostivaa.xyz"
+                  target="_blank"
+                  rel="noopener noreferrer"
                   className="group glass-card p-8 hover:border-blue-500/40 transition-all text-left relative overflow-hidden"
                 >
                   <div className="absolute top-0 right-0 p-6 opacity-5 group-hover:opacity-10 transition-opacity">
@@ -260,12 +279,12 @@ export default function Login() {
                   </div>
                   <h3 className="text-2xl font-bold mb-2">Billing Area</h3>
                   <p className="text-gray-500 text-sm mb-8 leading-relaxed">
-                    View your invoices, manage subscriptions, and create support tickets for your services.
+                    View your invoices, manage subscriptions, and manage your account on our external billing portal.
                   </p>
                   <div className="flex items-center gap-2 text-blue-400 font-bold uppercase tracking-widest text-xs">
-                    Manage Billing <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
+                    Open Billing <ArrowRight className="w-4 h-4 group-hover:translate-x-1 transition-transform" />
                   </div>
-                </Link>
+                </a>
               </div>
 
               <div className="mt-8 text-center">

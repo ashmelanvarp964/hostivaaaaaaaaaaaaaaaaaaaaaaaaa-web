@@ -9,13 +9,13 @@ import Hero from "@/src/components/Hero";
 import Pricing from "@/src/components/Pricing";
 import Features from "@/src/components/Features";
 import Footer from "@/src/components/Footer";
-import Checkout from "@/src/components/Checkout";
 import Success from "@/src/components/Success";
-import Admin from "@/src/components/Admin";
 import About from "@/src/components/About";
 import Login from "@/src/components/Login";
 import Billing from "@/src/components/Billing";
 import Support from "@/src/components/Support";
+import VerifyPayment from "@/src/components/VerifyPayment";
+import ScrollToTop from "@/src/components/ScrollToTop";
 import InteractiveBackground from "@/src/components/InteractiveBackground";
 import { AIAssistant } from "@/src/components/AIAssistant";
 import { useEffect } from "react";
@@ -23,6 +23,11 @@ import { AuthProvider } from "@/src/context/AuthContext";
 
 export default function App() {
   useEffect(() => {
+    // Disable automatic browser scroll restoration
+    if ("scrollRestoration" in window.history) {
+      window.history.scrollRestoration = "manual";
+    }
+
     // Basic protection against right-click
     const handleContextMenu = (e: MouseEvent) => {
       e.preventDefault();
@@ -51,12 +56,13 @@ export default function App() {
 
   return (
     <BrowserRouter>
+      <ScrollToTop />
       <AuthProvider>
-        <div className="min-h-screen text-white font-sans selection:bg-blue-500/30 relative">
+        <div className="min-h-screen flex flex-col text-white font-sans selection:bg-blue-500/30 relative">
           <InteractiveBackground />
           <Navbar />
           <AIAssistant />
-          <main>
+          <main className="flex-grow relative">
             <Routes>
             <Route path="/" element={
               <>
@@ -66,11 +72,10 @@ export default function App() {
                 <Pricing />
               </>
             } />
-            <Route path="/checkout/:planId" element={<Checkout />} />
             <Route path="/success" element={<Success />} />
-            <Route path="/admin" element={<Admin />} />
             <Route path="/login" element={<Login />} />
             <Route path="/billing" element={<Billing />} />
+            <Route path="/verify-payment" element={<VerifyPayment />} />
             <Route path="/support" element={<Support />} />
           </Routes>
         </main>

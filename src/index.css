@@ -6,6 +6,10 @@
 }
 
 @layer base {
+  html {
+    scroll-padding-top: 80px;
+    scroll-behavior: smooth;
+  }
   body {
     @apply bg-[#050505] antialiased text-white;
   }

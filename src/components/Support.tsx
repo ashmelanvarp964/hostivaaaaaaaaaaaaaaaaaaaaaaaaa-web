@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { useAuth } from "../context/AuthContext";
 import { auth, db } from "../lib/firebase";
 import { collection, query, where, orderBy, getDocs, addDoc, serverTimestamp, doc, updateDoc, arrayUnion, onSnapshot } from "firebase/firestore";
-import { MessageSquare, Send, Loader2, Plus, Clock, CheckCircle2, Ticket } from "lucide-react";
+import { MessageSquare, Send, Loader2, Plus, Clock, CheckCircle2, Ticket, ShieldCheck } from "lucide-react";
 import { Link, useNavigate } from "react-router-dom";
 
 enum OperationType {
@@ -258,6 +258,33 @@ export default function Support() {
             </div>
           </div>
         </div>
+        
+        {/* Payment Claim Section */}
+        <motion.div 
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ delay: 0.1 }}
+          className="glass-card p-8 border-blue-500/20 bg-blue-500/5 mt-8"
+        >
+          <div className="flex items-center gap-4 mb-6">
+            <div className="p-3 bg-blue-600 rounded-2xl">
+              <ShieldCheck className="w-6 h-6 text-white" />
+            </div>
+            <div>
+              <h3 className="text-xl font-bold">Payment Issues?</h3>
+              <p className="text-gray-400 text-sm">If you paid but didn't get your server, use our verification tool.</p>
+            </div>
+          </div>
+          
+          <div className="flex items-center gap-4">
+            <Link 
+              to="/verify-payment" 
+              className="px-6 py-3 bg-blue-600 hover:bg-blue-700 text-white rounded-xl font-bold transition-all"
+            >
+              Verify Payment
+            </Link>
+          </div>
+        </motion.div>
       </div>
 
       {/* Create Modal */}
