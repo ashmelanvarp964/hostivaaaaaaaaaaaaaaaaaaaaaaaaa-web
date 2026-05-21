@@ -272,6 +272,39 @@ async function startServer() {
     }
   });
 
+  // Pterodactyl Server Provisioning API EndPoint
+  app.post("/api/pterodactyl/create-server", async (req, res) => {
+    const { email, planId } = req.body;
+    
+    if (!email || !planId) {
+      return res.status(400).json({ success: false, error: "Email and planId are required" });
+    }
+
+    console.log(`[Ptero Endpoint] Received request to provision server for email: ${email}, plan: ${planId}`);
+
+    try {
+      const serverDetails = await provisionServer(email, planId);
+      
+      console.log(`[Ptero Endpoint] Spawned server successfully. ID: ${serverDetails.id}, Identifier: ${serverDetails.identifier}`);
+      
+      return res.json({
+        success: true,
+        id: serverDetails.id,
+        serverId: serverDetails.id,
+        identifier: serverDetails.identifier,
+        message: "Server created successfully",
+        server: serverDetails
+      });
+    } catch (error: any) {
+      console.error("[Ptero Endpoint] Provisioning error:", error.message || error);
+      return res.status(500).json({
+        success: false,
+        error: "Failed to create Pterodactyl server",
+        details: error.message || error
+      });
+    }
+  });
+
   // Health and Introspection
   app.get("/api/health/integrations", async (req, res) => {
     const normalize = (val: string | undefined) => val ? val.trim().replace(/^["']|["']$/g, '') : "";
