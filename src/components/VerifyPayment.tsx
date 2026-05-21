@@ -105,7 +105,7 @@ export default function VerifyPayment() {
               </div>
               <div className="flex flex-col gap-3">
                 <a 
-                  href="https://cp.hostiva.xyz" 
+                  href="https://cp.hostivaa.xyz" 
                   target="_blank" 
                   className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3 rounded-xl transition-all block"
                 >

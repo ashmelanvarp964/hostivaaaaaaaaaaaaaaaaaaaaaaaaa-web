@@ -38,8 +38,8 @@ export default function Footer() {
           <div>
             <h4 className="font-bold mb-6 text-sm uppercase tracking-widest text-gray-300">Services</h4>
             <ul className="space-y-4 text-sm text-gray-500">
-              <li><a href="https://cp.hostiva.xyz" target="_blank" rel="noopener noreferrer" className="hover:text-blue-400 transition-colors">Game Panel</a></li>
-              <li><a href="https://billing.hostivaa.xyz" target="_blank" rel="noopener noreferrer" className="hover:text-blue-400 transition-colors">Billing Area</a></li>
+              <li><a href="https://cp.hostivaa.xyz" target="_blank" rel="noopener noreferrer" className="hover:text-blue-400 transition-colors">Game Panel</a></li>
+              <li><Link to="/billing" className="hover:text-blue-400 transition-colors">Billing Area</Link></li>
               <li><a href="#pricing" className="hover:text-blue-400 transition-colors">Minecraft Hosting</a></li>
               <li><a href="#pricing" className="hover:text-blue-400 transition-colors">VDS Hosting</a></li>
             </ul>
@@ -50,8 +50,8 @@ export default function Footer() {
             <ul className="space-y-4 text-sm text-gray-500">
               <li><a href="#" className="hover:text-blue-400 transition-colors">Documentation</a></li>
               <li><a href="#" className="hover:text-blue-400 transition-colors">API Reference</a></li>
+              <li><Link to="/admin" className="hover:text-blue-400 transition-colors">Admin Terminal</Link></li>
               <li><a href="#" className="hover:text-blue-400 transition-colors">System Status</a></li>
-              <li><a href="#" className="hover:text-blue-400 transition-colors">Technical Blog</a></li>
             </ul>
           </div>
 

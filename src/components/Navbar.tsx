@@ -27,7 +27,7 @@ export default function Navbar() {
           <div className="hidden md:flex items-center gap-8">
             <a href="/#features" className="text-sm text-gray-400 hover:text-white transition-colors">Features</a>
             <a href="/#pricing" className="text-sm text-gray-400 hover:text-white transition-colors">Pricing</a>
-            <a href="https://billing.hostivaa.xyz" target="_blank" rel="noopener noreferrer" className="text-sm text-gray-400 hover:text-white transition-colors">Billing</a>
+            <Link to="/billing" className="text-sm text-gray-400 hover:text-white transition-colors">Billing</Link>
             <Link to="/support" className="text-sm text-gray-400 hover:text-white transition-colors">Support</Link>
             <a href="/#about" className="text-sm text-gray-400 hover:text-white transition-colors">About</a>
             <Link to="/login" className="px-4 py-2 text-sm font-medium text-blue-500 hover:text-blue-400 transition-colors flex items-center gap-2">
@@ -55,7 +55,7 @@ export default function Navbar() {
         >
           <a href="/#features" onClick={() => setIsOpen(false)} className="text-gray-400 py-2">Features</a>
           <a href="/#pricing" onClick={() => setIsOpen(false)} className="text-gray-400 py-2">Pricing</a>
-          <a href="https://billing.hostivaa.xyz" target="_blank" rel="noopener noreferrer" onClick={() => setIsOpen(false)} className="text-gray-400 py-2">Billing</a>
+          <Link to="/billing" onClick={() => setIsOpen(false)} className="text-gray-400 py-2">Billing</Link>
           <Link to="/support" onClick={() => setIsOpen(false)} className="text-gray-400 py-2">Support</Link>
           <a href="/#about" onClick={() => setIsOpen(false)} className="text-gray-400 py-2">About</a>
           <Link to="/login" onClick={() => setIsOpen(false)} className="text-gray-400 py-2 flex items-center gap-2">

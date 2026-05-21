@@ -56,11 +56,23 @@ export default function Pricing() {
           </p>
         </div>
 
-        <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-8">
+        <motion.div 
+          layout
+          className="grid md:grid-cols-2 lg:grid-cols-3 gap-8"
+        >
           {filteredPlans.map((plan, idx) => (
-            <div
+            <motion.div
+              layout
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.45, delay: idx * 0.04, ease: [0.16, 1, 0.3, 1] }}
+              whileHover={{ 
+                y: -6, 
+                scale: plan.recommended ? 1.04 : 1.02,
+                transition: { duration: 0.25, ease: [0.16, 1, 0.3, 1] } 
+              }}
               key={plan.id}
-              className={`glass-card p-8 flex flex-col hover:border-blue-500/30 transition-all ${plan.recommended ? 'border-blue-500/50 ring-1 ring-blue-500/20 relative scale-[1.02] z-10' : ''}`}
+              className={`glass-card p-8 flex flex-col hover:border-blue-500/40 hover:shadow-[0_20px_40px_-15px_rgba(37,99,235,0.15)] transition-colors duration-300 relative ${plan.recommended ? 'border-blue-500/50 ring-1 ring-blue-500/20 scale-[1.02] z-10' : ''}`}
             >
               {plan.recommended && (
                 <div className="absolute -top-4 left-1/2 -translate-x-1/2 bg-blue-600 text-white text-[10px] font-bold uppercase tracking-widest px-3 py-1 rounded-full">
@@ -117,10 +129,8 @@ export default function Pricing() {
                 ))}
               </ul>
 
-              <a
-                href="https://billing.hostivaa.xyz"
-                target="_blank"
-                rel="noopener noreferrer"
+              <Link
+                to={`/checkout/${plan.id}`}
                 className={`w-full py-4 rounded-xl font-bold text-center transition-all ${
                   plan.recommended 
                     ? 'bg-blue-600 hover:bg-blue-500 text-white glow-blue shadow-[0_0_20px_-5px_rgba(59,130,246,0.5)]' 
@@ -128,10 +138,10 @@ export default function Pricing() {
                 }`}
               >
                 Get Started
-              </a>
-            </div>
+              </Link>
+            </motion.div>
           ))}
-        </div>
+        </motion.div>
         
         <div className="mt-20 glass-card p-12 text-center relative overflow-hidden group">
           <div className="absolute top-0 right-0 w-64 h-64 bg-blue-600/10 blur-[100px] group-hover:bg-blue-600/20 transition-all" />

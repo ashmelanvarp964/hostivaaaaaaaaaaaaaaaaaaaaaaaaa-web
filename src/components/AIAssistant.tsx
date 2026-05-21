@@ -53,9 +53,27 @@ interface LoadData {
 
 export function AIAssistant() {
   const [isOpen, setIsOpen] = useState(false);
-  const [messages, setMessages] = useState<Message[]>([
-    { id: "1", role: "assistant", content: "Hi! I'm Hostiva's AI Assistant. How can I help you choose the perfect hosting plan today?" }
-  ]);
+  const [messages, setMessages] = useState<Message[]>(() => {
+    try {
+      const saved = localStorage.getItem("hostiva_chat_history");
+      if (saved) {
+        return JSON.parse(saved);
+      }
+    } catch (err) {
+      console.error("Failed to load chat history from local storage:", err);
+    }
+    return [
+      { id: "1", role: "assistant", content: "Hi! I'm Hostiva's AI Assistant. How can I help you choose the perfect hosting plan today?" }
+    ];
+  });
+
+  useEffect(() => {
+    try {
+      localStorage.setItem("hostiva_chat_history", JSON.stringify(messages));
+    } catch (err) {
+      console.error("Failed to save chat history to local storage:", err);
+    }
+  }, [messages]);
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [networkLoad, setNetworkLoad] = useState<LoadData[]>([]);
@@ -94,16 +112,37 @@ export function AIAssistant() {
   };
 
   const handleFeedback = async (messageId: string, type: 'positive' | 'negative') => {
+    // Find the message in chat history to extract details
+    const msgIndex = messages.findIndex(msg => msg.id === messageId);
+    if (msgIndex === -1) return;
+
+    const assistantMsg = messages[msgIndex];
+
     // Optimistic update
     setMessages(prev => prev.map(msg => 
       msg.id === messageId ? { ...msg, feedback: type } : msg
     ));
 
+    // Look back for the closest user prompt to provide complete conversation context
+    let userPrompt = "";
+    for (let i = msgIndex - 1; i >= 0; i--) {
+      if (messages[i].role === 'user') {
+        userPrompt = messages[i].content;
+        break;
+      }
+    }
+
     try {
       await fetch("/api/ai/feedback", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ messageId, type })
+        body: JSON.stringify({ 
+          messageId, 
+          type,
+          messageContent: assistantMsg.content,
+          userPrompt,
+          history: messages.slice(0, msgIndex + 1).map(m => ({ role: m.role, content: m.content }))
+        })
       });
     } catch (error) {
       console.error("Failed to submit feedback:", error);
@@ -270,29 +309,61 @@ export function AIAssistant() {
                         {msg.role === 'assistant' ? <Bot className="w-5 h-5" /> : <User className="w-5 h-5" />}
                       </div>
                       <div className="flex flex-col gap-1 w-full">
-                        <div className={`p-3 rounded-2xl text-sm leading-relaxed ${
+                        <div className={`p-3 rounded-2xl text-sm leading-relaxed transition-all duration-300 ${
                           msg.role === 'user' 
                             ? 'bg-blue-600 text-white rounded-tr-none' 
-                            : 'bg-white/5 text-gray-200 border border-white/5 rounded-tl-none'
+                            : `bg-white/5 text-gray-200 border rounded-tl-none ${
+                                msg.feedback === 'positive' 
+                                  ? 'border-green-500/20 shadow-[0_0_15px_-3px_rgba(34,197,94,0.12)] bg-green-500/[0.02]' 
+                                  : msg.feedback === 'negative'
+                                  ? 'border-red-500/20 bg-red-500/[0.02]'
+                                  : 'border-white/5'
+                              }`
                         }`}>
                           {renderMessageContent(msg)}
                         </div>
                         {msg.role === 'assistant' && (
-                          <div className="flex items-center gap-2 mt-1 px-1">
-                            <button
-                              onClick={() => handleFeedback(msg.id, 'positive')}
-                              className={`p-1 rounded hover:bg-white/5 transition-colors ${msg.feedback === 'positive' ? 'text-green-400' : 'text-gray-500'}`}
-                              title="Helpful"
-                            >
-                              <ThumbsUp className="w-3 h-3" />
-                            </button>
-                            <button
-                              onClick={() => handleFeedback(msg.id, 'negative')}
-                              className={`p-1 rounded hover:bg-white/5 transition-colors ${msg.feedback === 'negative' ? 'text-red-400' : 'text-gray-500'}`}
-                              title="Not helpful"
-                            >
-                              <ThumbsDown className="w-3 h-3" />
-                            </button>
+                          <div className="flex items-center justify-between gap-2 mt-1 px-1">
+                            <div className="flex items-center gap-1.5">
+                              <motion.button
+                                whileHover={{ scale: 1.15 }}
+                                whileTap={{ scale: 0.85 }}
+                                onClick={() => handleFeedback(msg.id, 'positive')}
+                                className={`p-1 rounded hover:bg-white/5 transition-colors duration-200 cursor-pointer ${
+                                  msg.feedback === 'positive' 
+                                    ? 'text-green-400 bg-green-500/10' 
+                                    : 'text-gray-500 hover:text-green-400'
+                                }`}
+                                title="Helpful"
+                              >
+                                <ThumbsUp className="w-3.5 h-3.5" />
+                              </motion.button>
+                              <motion.button
+                                whileHover={{ scale: 1.15 }}
+                                whileTap={{ scale: 0.85 }}
+                                onClick={() => handleFeedback(msg.id, 'negative')}
+                                className={`p-1 rounded hover:bg-white/5 transition-colors duration-200 cursor-pointer ${
+                                  msg.feedback === 'negative' 
+                                    ? 'text-red-400 bg-red-500/10' 
+                                    : 'text-gray-500 hover:text-red-400'
+                                }`}
+                                title="Not helpful"
+                              >
+                                <ThumbsDown className="w-3.5 h-3.5" />
+                              </motion.button>
+                            </div>
+                            <AnimatePresence>
+                              {msg.feedback && (
+                                <motion.span
+                                  initial={{ opacity: 0, x: -6 }}
+                                  animate={{ opacity: 1, x: 0 }}
+                                  exit={{ opacity: 0 }}
+                                  className="text-[10px] text-gray-500 font-medium italic select-none"
+                                >
+                                  {msg.feedback === 'positive' ? "Liked! Thanks" : "Sending to engineers"}
+                                </motion.span>
+                              )}
+                            </AnimatePresence>
                           </div>
                         )}
                       </div>

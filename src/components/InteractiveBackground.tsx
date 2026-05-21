@@ -1,61 +1,85 @@
-import React, { useEffect } from 'react';
-import { motion, useSpring, useMotionValue } from 'motion/react';
+import React, { useEffect, useRef } from 'react';
 
 export default function InteractiveBackground() {
-  const mouseX = useMotionValue(0);
-  const mouseY = useMotionValue(0);
-
-  // Smooth springs for cursor tracking
-  const springX = useSpring(mouseX, { damping: 50, stiffness: 200 });
-  const springY = useSpring(mouseY, { damping: 50, stiffness: 200 });
+  const glowRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
+    let currentX = window.innerWidth / 2;
+    let currentY = window.innerHeight / 2;
+    let targetX = currentX;
+    let targetY = currentY;
+    let animationFrameId: number;
+
     const handleMouseMove = (e: MouseEvent) => {
-      mouseX.set(e.clientX);
-      mouseY.set(e.clientY);
+      targetX = e.clientX;
+      targetY = e.clientY;
     };
 
-    window.addEventListener('mousemove', handleMouseMove);
-    return () => window.removeEventListener('mousemove', handleMouseMove);
-  }, [mouseX, mouseY]);
+    window.addEventListener('mousemove', handleMouseMove, { passive: true });
+
+    const tick = () => {
+      // Super smooth lerp (linear interpolation)
+      currentX += (targetX - currentX) * 0.08;
+      currentY += (targetY - currentY) * 0.08;
+
+      if (glowRef.current) {
+        glowRef.current.style.transform = `translate3d(${currentX}px, ${currentY}px, 0) translate3d(-50%, -50%, 0)`;
+      }
+
+      animationFrameId = requestAnimationFrame(tick);
+    };
+
+    tick();
+
+    return () => {
+      window.removeEventListener('mousemove', handleMouseMove);
+      cancelAnimationFrame(animationFrameId);
+    };
+  }, []);
 
   return (
     <div className="fixed inset-0 -z-10 bg-[#050505] overflow-hidden pointer-events-none">
-      {/* Glow following cursor (Simplified) */}
-      <motion.div
+      {/* Glow following cursor (Pure GPU-accelerated translate3d tracking) */}
+      <div
+        ref={glowRef}
         style={{
-          left: mouseX,
-          top: mouseY,
-          translateX: '-50%',
-          translateY: '-50%',
-          background: 'radial-gradient(circle, rgba(59, 130, 246, 0.05) 0%, transparent 70%)',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          width: '750px',
+          height: '750px',
+          background: 'radial-gradient(circle, rgba(59, 130, 246, 0.08) 0%, transparent 70%)',
+          willChange: 'transform',
         }}
-        className="absolute w-[600px] h-[600px] rounded-full opacity-40 pointer-events-none"
+        className="rounded-full opacity-50 pointer-events-none"
       />
 
-      {/* Secondary slow floating blobs for atmosphere (Reduced blur for performance) */}
-      <motion.div 
-        animate={{
-          x: [0, 30, -30, 0],
-          y: [0, -20, 20, 0],
-        }}
-        transition={{
-          duration: 35,
-          repeat: Infinity,
-          ease: "linear"
+      {/* Secondary slow floating atmospheric blobs (using cheap pure hardware-accelerated CSS animations) */}
+      <style dangerouslySetInnerHTML={{ __html: `
+        @keyframes floatBlob1 {
+          0%, 100% { transform: translate3d(0, 0, 0); }
+          33% { transform: translate3d(30px, -20px, 0); }
+          66% { transform: translate3d(-30px, 20px, 0); }
+        }
+        @keyframes floatBlob2 {
+          0%, 100% { transform: translate3d(0, 0, 0); }
+          33% { transform: translate3d(-40px, 30px, 0); }
+          66% { transform: translate3d(40px, -30px, 0); }
+        }
+      `}} />
+      
+      <div 
+        style={{
+          animation: 'floatBlob1 35s infinite linear',
+          willChange: 'transform'
         }}
         className="absolute top-[15%] -left-[10%] w-[500px] h-[500px] bg-blue-600/[0.015] rounded-full blur-[80px] pointer-events-none" 
       />
       
-      <motion.div 
-        animate={{
-          x: [0, -40, 40, 0],
-          y: [0, 30, -30, 0],
-        }}
-        transition={{
-          duration: 40,
-          repeat: Infinity,
-          ease: "linear"
+      <div 
+        style={{
+          animation: 'floatBlob2 40s infinite linear',
+          willChange: 'transform'
         }}
         className="absolute bottom-[10%] -right-[5%] w-[600px] h-[600px] bg-indigo-600/[0.02] rounded-full blur-[90px] pointer-events-none" 
       />
@@ -69,8 +93,6 @@ export default function InteractiveBackground() {
           maskImage: 'radial-gradient(circle at center, black, transparent 80%)'
         }}
       />
-      
-      {/* Heavy Grain overlay removed for performance */}
     </div>
   );
 }
