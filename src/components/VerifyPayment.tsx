@@ -49,7 +49,14 @@ export default function VerifyPayment() {
         })
       });
 
-      const data = await response.json();
+      const responseText = await response.text();
+      let data: any;
+      try {
+        data = JSON.parse(responseText);
+      } catch (err) {
+        console.error("Non-JSON claim-server response:", responseText);
+        throw new Error(`Server returned an invalid response (Status ${response.status}).`);
+      }
 
       if (!response.ok) {
         throw new Error(data.details || data.error || "Verification failed");

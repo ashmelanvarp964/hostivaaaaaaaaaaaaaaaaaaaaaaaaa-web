@@ -61,7 +61,10 @@ export default function Checkout() {
       const res = await fetch("/api/validate-coupon", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ code: couponCode.trim() })
+        body: JSON.stringify({ 
+          code: couponCode.trim(),
+          email: panelEmail.trim() || user?.email || ""
+        })
       });
 
       const data = await res.json();
@@ -101,7 +104,15 @@ export default function Checkout() {
         })
       });
 
-      const orderData = await orderRes.json();
+      const orderResText = await orderRes.text();
+      let orderData: any;
+      try {
+        orderData = JSON.parse(orderResText);
+      } catch (err) {
+        console.error("Order creation non-JSON response:", orderResText);
+        throw new Error(`Server returned an invalid response (Status ${orderRes.status}). Please try again or use another payment mechanism.`);
+      }
+
       if (!orderRes.ok) {
         throw new Error(orderData.details || orderData.error || "Failed to initialize payment order");
       }
@@ -135,11 +146,20 @@ export default function Checkout() {
                 planId: plan.id,
                 email: panelEmail.trim(), // The Pterodactyl Target Email
                 amount: totalAmount,
-                userId: user?.uid
+                userId: user?.uid,
+                couponCode: appliedCoupon
               })
             });
 
-            const verifyData = await verifyRes.json();
+            const verifyResText = await verifyRes.text();
+            let verifyData: any;
+            try {
+              verifyData = JSON.parse(verifyResText);
+            } catch (err) {
+              console.error("Payment verification non-JSON response:", verifyResText);
+              throw new Error(`Verification server returned an invalid response (Status ${verifyRes.status}). Please contact support with payment ID: ${response.razorpay_payment_id}`);
+            }
+
             if (!verifyRes.ok) {
               throw new Error(verifyData.message || "Verification failed");
             }

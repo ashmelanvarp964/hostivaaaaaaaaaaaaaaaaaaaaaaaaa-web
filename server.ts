@@ -34,6 +34,10 @@ async function startServer() {
   const pendingOrders = new Map<string, any>();
   const orderHistory: any[] = [];
   const coupons = new Map<string, { discount: number; expiresAt?: string; usedCount: number }>();
+  coupons.set("SAVE10", { discount: 10, expiresAt: "2030-12-31T23:59:59.000Z", usedCount: 0 });
+  coupons.set("WELCOME50", { discount: 50, expiresAt: "2030-12-31T23:59:59.000Z", usedCount: 0 });
+  coupons.set("EXPIRED30", { discount: 30, expiresAt: "2025-01-01T00:00:00.000Z", usedCount: 0 });
+  coupons.set("HOSTIVA20", { discount: 20, expiresAt: "2028-05-21T00:00:00.000Z", usedCount: 0 });
   const dynamicPlans = [...plans];
   const aiFeedback: any[] = [];
 
@@ -75,18 +79,55 @@ async function startServer() {
   };
 
   // Coupon Validation
-  app.post("/api/validate-coupon", (req, res) => {
-    const { code } = req.body;
-    const coupon = coupons.get(code.toUpperCase());
+  app.post("/api/validate-coupon", async (req, res) => {
+    const { code, email } = req.body;
+    
+    if (!code) {
+      return res.status(400).json({ success: false, message: "Coupon code is required" });
+    }
+
+    const uppercaseCode = code.toUpperCase();
+    const coupon = coupons.get(uppercaseCode);
     
     if (coupon) {
       // Check for expiration
       if (coupon.expiresAt && new Date(coupon.expiresAt) < new Date()) {
-        return res.status(403).json({ success: false, message: "expired" });
+        return res.status(400).json({ success: false, message: "expired" });
       }
+
+      // Check if coupon has already been used by this email
+      if (email && typeof email === "string" && email.trim() !== "") {
+        const normalizedEmail = email.trim().toLowerCase();
+        
+        // 1. Check in-memory orderHistory
+        const alreadyUsedInMemory = orderHistory.some(
+          o => o.customerEmail?.toLowerCase() === normalizedEmail &&
+               o.couponCode?.toUpperCase() === uppercaseCode &&
+               (o.status === "PAID" || o.status === "CLAIMED")
+        );
+
+        if (alreadyUsedInMemory) {
+          return res.status(400).json({ success: false, message: "Coupon already used" });
+        }
+
+        // 2. Check Firestore "orders" if db is initialized
+        try {
+          const finishedOrdersQuery = await db.collection("orders")
+            .where("customerEmail", "==", normalizedEmail)
+            .where("couponCode", "==", uppercaseCode)
+            .get();
+
+          if (!finishedOrdersQuery.empty) {
+            return res.status(400).json({ success: false, message: "Coupon already used" });
+          }
+        } catch (dbErr: any) {
+          console.warn("[Coupon Validation] Firestore query failed, proceeding with memory check only:", dbErr.message || dbErr);
+        }
+      }
+
       res.json({ success: true, discount: coupon.discount });
     } else {
-      res.status(404).json({ success: false, message: "Invalid coupon code" });
+      res.status(400).json({ success: false, message: "Invalid coupon code" });
     }
   });
 
@@ -388,102 +429,122 @@ async function startServer() {
   });
 
   app.post("/api/razorpay/verify-payment", async (req, res) => {
-    const { razorpay_order_id, razorpay_payment_id, razorpay_signature, planId, email, amount, userId } = req.body;
-    
-    let isVerified = false;
-    // Check if sandbox order or bypass signature validation if no secret is set
-    if (razorpay_order_id && razorpay_order_id.startsWith("order_sandbox_")) {
-      isVerified = true;
-    } else {
-      const signatureSecret = normalize(process.env.RAZORPAY_KEY_SECRET) || "LJ8am03Ohlfj73xz6u1G8dNQ";
-      if (!signatureSecret) {
-        // Fallback for developer environment where only mock is processed
-        isVerified = !!(razorpay_payment_id && razorpay_payment_id.startsWith("pay_"));
-      } else {
-        const body = razorpay_order_id + "|" + razorpay_payment_id;
-        const expectedSignature = crypto
-          .createHmac("sha256", signatureSecret)
-          .update(body.toString())
-          .digest("hex");
-        isVerified = (expectedSignature === razorpay_signature);
+    try {
+      const { razorpay_order_id, razorpay_payment_id, razorpay_signature, planId, email, amount, userId, couponCode } = req.body;
+      
+      if (!email) {
+        return res.status(400).json({ success: false, message: "Email is required to link server access." });
       }
-    }
 
-    if (isVerified) {
-      const securePaymentId = razorpay_payment_id || `pay_sandbox_${Math.random().toString(36).slice(2, 11)}`;
-      const secureOrderId = razorpay_order_id || `order_sandbox_${Math.random().toString(36).slice(2, 11)}`;
-      const orderId = `razor_${securePaymentId}`;
-      const historyOrder: any = {
-        orderId,
-        razorpay_order_id: secureOrderId,
-        razorpay_payment_id: securePaymentId,
-        amount,
-        planId,
-        customerEmail: email,
-        userId: userId,
-        status: "PAID",
-        provisioningStatus: "AUTO",
-        createdAt: new Date().toISOString(),
-        completedAt: new Date().toISOString()
-      };
-      
-      orderHistory.push(historyOrder);
-      
-      // Persist order in Firestore under "orders" collection
-      db.collection("orders").doc(orderId).set({
-        orderId,
-        razorpay_order_id: secureOrderId,
-        razorpay_payment_id: securePaymentId,
-        amount,
-        planId,
-        customerEmail: email, // Pterodactyl target email
-        userId: userId,
-        status: "PAID",
-        provisioningStatus: "PENDING",
-        createdAt: new Date().toISOString(),
-        completedAt: new Date().toISOString(),
-        serverIp: `${planId.startsWith("perf") ? "perf" : "play"}1.hostivaa.xyz:${25500 + Math.floor(Math.random() * 99)}`
-      }).then(() => {
-        console.log(`Successfully created Firestore receipt for transaction: ${securePaymentId}`);
-      }).catch(err => {
-        console.error("Failed to write to Firestore:", err);
-      });
-      
-      // Auto Provision (Non-blocking)
-      provisionServer(email, planId).then(async pteroServer => {
-        historyOrder.provisioningStatus = "SUCCESS";
-        historyOrder.pteroServerId = pteroServer.id;
-        historyOrder.pteroIdentifier = pteroServer.identifier;
-        console.log(`Successfully provisioned Pterodactyl server for ${email}`);
-        
-        // Update Firestore with success and short server details
-        try {
-          await db.collection("orders").doc(orderId).update({
-            provisioningStatus: "SUCCESS",
-            pteroServerId: pteroServer.id,
-            pteroIdentifier: pteroServer.identifier
-          });
-        } catch (dbErr) {
-          console.error("Firestore async update failed:", dbErr);
+      let isVerified = false;
+      // Check if sandbox order or bypass signature validation if no secret is set
+      if (razorpay_order_id && razorpay_order_id.startsWith("order_sandbox_")) {
+        isVerified = true;
+      } else {
+        const signatureSecret = normalize(process.env.RAZORPAY_KEY_SECRET) || "LJ8am03Ohlfj73xz6u1G8dNQ";
+        if (!signatureSecret) {
+          // Fallback for developer environment where only mock is processed
+          isVerified = !!(razorpay_payment_id && razorpay_payment_id.startsWith("pay_"));
+        } else {
+          const body = razorpay_order_id + "|" + razorpay_payment_id;
+          const expectedSignature = crypto
+            .createHmac("sha256", signatureSecret)
+            .update(body.toString())
+            .digest("hex");
+          isVerified = (expectedSignature === razorpay_signature);
         }
-      }).catch(async provError => {
-        console.error("Auto-provisioning failed:", provError);
-        historyOrder.provisioningStatus = "FAILED";
-        
-        // Update Firestore with failure status
-        try {
-          await db.collection("orders").doc(orderId).update({
-            provisioningStatus: "FAILED",
-            provisioningError: provError.message || "Failed to sync with node"
-          });
-        } catch (dbErr) {
-          console.error("Firestore async update failed:", dbErr);
-        }
-      });
+      }
 
-      res.json({ success: true, orderId });
-    } else {
-      res.status(400).json({ success: false, message: "Invalid payment signature" });
+      if (isVerified) {
+        const securePaymentId = razorpay_payment_id || `pay_sandbox_${Math.random().toString(36).slice(2, 11)}`;
+        const secureOrderId = razorpay_order_id || `order_sandbox_${Math.random().toString(36).slice(2, 11)}`;
+        const orderId = `razor_${securePaymentId}`;
+        const historyOrder: any = {
+          orderId,
+          razorpay_order_id: secureOrderId,
+          razorpay_payment_id: securePaymentId,
+          amount,
+          planId: planId || "budget-starter",
+          customerEmail: email,
+          userId: userId,
+          status: "PAID",
+          provisioningStatus: "AUTO",
+          createdAt: new Date().toISOString(),
+          completedAt: new Date().toISOString(),
+          couponCode: couponCode ? String(couponCode).toUpperCase() : ""
+        };
+        
+        orderHistory.push(historyOrder);
+        
+        const isPerf = !!(planId && typeof planId === "string" && planId.startsWith("perf"));
+        const randomPort = 25500 + Math.floor(Math.random() * 99);
+        const serverIp = `${isPerf ? "perf" : "play"}1.hostivaa.xyz:${randomPort}`;
+
+        // Persist order in Firestore under "orders" collection
+        try {
+          await db.collection("orders").doc(orderId).set({
+            orderId,
+            razorpay_order_id: secureOrderId,
+            razorpay_payment_id: securePaymentId,
+            amount,
+            planId: planId || "budget-starter",
+            customerEmail: email, // Pterodactyl target email
+            userId: userId || "",
+            status: "PAID",
+            provisioningStatus: "PENDING",
+            createdAt: new Date().toISOString(),
+            completedAt: new Date().toISOString(),
+            serverIp,
+            couponCode: couponCode ? String(couponCode).toUpperCase() : ""
+          });
+          console.log(`Successfully created Firestore receipt for transaction: ${securePaymentId}`);
+        } catch (err: any) {
+          console.error("Failed to write order receipt to Firestore, continuing with local history:", err.message || err);
+        }
+        
+        // Auto Provision (Non-blocking)
+        provisionServer(email, planId || "budget-starter").then(async pteroServer => {
+          historyOrder.provisioningStatus = "SUCCESS";
+          historyOrder.pteroServerId = pteroServer.id;
+          historyOrder.pteroIdentifier = pteroServer.identifier;
+          console.log(`Successfully provisioned Pterodactyl server for ${email}`);
+          
+          // Update Firestore with success and short server details
+          try {
+            await db.collection("orders").doc(orderId).update({
+              provisioningStatus: "SUCCESS",
+              pteroServerId: pteroServer.id,
+              pteroIdentifier: pteroServer.identifier
+            });
+          } catch (dbErr) {
+            console.error("Firestore async update failed:", dbErr);
+          }
+        }).catch(async provError => {
+          console.error("Auto-provisioning failed:", provError);
+          historyOrder.provisioningStatus = "FAILED";
+          
+          // Update Firestore with failure status
+          try {
+            await db.collection("orders").doc(orderId).update({
+              provisioningStatus: "FAILED",
+              provisioningError: provError.message || "Failed to sync with node"
+            });
+          } catch (dbErr) {
+            console.error("Firestore async update failed:", dbErr);
+          }
+        });
+
+        return res.json({ success: true, orderId });
+      } else {
+        return res.status(400).json({ success: false, message: "Invalid payment signature verification" });
+      }
+    } catch (error: any) {
+      console.error("[Verify Payment Error] Exception caught:", error.message || error);
+      return res.status(500).json({
+        success: false,
+        message: "An internal server error occurred during payment verification",
+        details: error.message || "Unknown error"
+      });
     }
   });
 
