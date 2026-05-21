@@ -38,6 +38,38 @@ async function startServer() {
   coupons.set("WELCOME50", { discount: 50, expiresAt: "2030-12-31T23:59:59.000Z", usedCount: 0 });
   coupons.set("EXPIRED30", { discount: 30, expiresAt: "2025-01-01T00:00:00.000Z", usedCount: 0 });
   coupons.set("HOSTIVA20", { discount: 20, expiresAt: "2028-05-21T00:00:00.000Z", usedCount: 0 });
+
+  // Load coupons from Firestore if available, otherwise seed defaults
+  try {
+    const couponSnap = await db.collection("coupons").get();
+    if (couponSnap.empty) {
+      const batch = db.batch();
+      coupons.forEach((val, key) => {
+        const ref = db.collection("coupons").doc(key);
+        batch.set(ref, {
+          discount: val.discount,
+          expiresAt: val.expiresAt || null,
+          usedCount: val.usedCount || 0
+        });
+      });
+      await batch.commit();
+      console.log("[Firestore] Seeded default coupons.");
+    } else {
+      coupons.clear();
+      couponSnap.forEach(doc => {
+        const data = doc.data();
+        coupons.set(doc.id, {
+          discount: Number(data.discount),
+          expiresAt: data.expiresAt || undefined,
+          usedCount: Number(data.usedCount || 0)
+        });
+      });
+      console.log(`[Firestore] Loaded ${coupons.size} coupons.`);
+    }
+  } catch (err: any) {
+    console.warn("[Firestore] Failed to sync coupons, using local defaults:", err.message || err);
+  }
+
   const dynamicPlans = [...plans];
   const aiFeedback: any[] = [];
 
@@ -258,6 +290,84 @@ async function startServer() {
     } catch (error: any) {
       console.error("Admin feedback query failed:", error);
       res.status(500).json({ error: "Failed to load admin feedbacks", details: error.message });
+    }
+  });
+
+  // Admin Coupon Endpoints
+  // 1. GET all coupons
+  app.get("/api/admin/coupons", adminProtected, (req, res) => {
+    try {
+      const list: any[] = [];
+      coupons.forEach((val, key) => {
+        list.push({ code: key, ...val });
+      });
+      res.json(list);
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to list coupons", details: err.message });
+    }
+  });
+
+  // 2. Add / update a coupon
+  app.post("/api/admin/coupons", adminProtected, async (req, res) => {
+    try {
+      const { code, discount, expiresAt } = req.body;
+      if (!code || typeof code !== "string" || !code.trim()) {
+        return res.status(400).json({ error: "Coupon code is required" });
+      }
+      const discValue = parseInt(discount, 10);
+      if (isNaN(discValue) || discValue < 1 || discValue > 100) {
+        return res.status(400).json({ error: "Discount must be a percentage between 1 and 100" });
+      }
+
+      const uppercaseCode = code.trim().toUpperCase();
+      const expiresVal = expiresAt ? new Date(expiresAt).toISOString() : undefined;
+      
+      const newCoupon = {
+        discount: discValue,
+        expiresAt: expiresVal,
+        usedCount: 0
+      };
+
+      // Set in memory Map
+      coupons.set(uppercaseCode, newCoupon);
+
+      // Save to Firestore "coupons" collection
+      try {
+        await db.collection("coupons").doc(uppercaseCode).set({
+          discount: discValue,
+          expiresAt: expiresVal || null,
+          usedCount: 0
+        });
+      } catch (dbErr: any) {
+        console.error("Failed to commit coupon to Firestore:", dbErr.message || dbErr);
+      }
+
+      res.json({ success: true, message: `Coupon '${uppercaseCode}' saved successfully.`, coupon: { code: uppercaseCode, ...newCoupon } });
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to add coupon", details: err.message });
+    }
+  });
+
+  // 3. Delete a coupon
+  app.delete("/api/admin/coupons/:code", adminProtected, async (req, res) => {
+    try {
+      const code = req.params.code.toUpperCase();
+      if (!coupons.has(code)) {
+        return res.status(404).json({ error: "Coupon not found" });
+      }
+
+      coupons.delete(code);
+
+      // Delete from Firestore
+      try {
+        await db.collection("coupons").doc(code).delete();
+      } catch (dbErr: any) {
+        console.error("Failed to delete coupon from Firestore:", dbErr.message || dbErr);
+      }
+
+      res.json({ success: true, message: `Coupon '${code}' has been deleted.` });
+    } catch (err: any) {
+      res.status(500).json({ error: "Failed to delete coupon", details: err.message });
     }
   });
 

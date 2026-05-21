@@ -16,7 +16,12 @@ import {
   Search,
   MessageSquare,
   Sparkles,
-  ExternalLink
+  ExternalLink,
+  Tag,
+  Trash2,
+  Plus,
+  Calendar,
+  AlertCircle
 } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 
@@ -57,6 +62,13 @@ interface FeedbackRecord {
   timestamp: string;
 }
 
+interface CouponRecord {
+  code: string;
+  discount: number;
+  expiresAt?: string;
+  usedCount: number;
+}
+
 export default function AdminPanel() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState("");
@@ -64,14 +76,23 @@ export default function AdminPanel() {
   const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
 
   // States
-  const [activeTab, setActiveTab] = useState<"stats" | "orders" | "feedback">("stats");
+  const [activeTab, setActiveTab] = useState<"stats" | "orders" | "feedback" | "coupons">("stats");
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [orders, setOrders] = useState<OrderRecord[]>([]);
   const [feedbacks, setFeedbacks] = useState<FeedbackRecord[]>([]);
+  const [coupons, setCoupons] = useState<CouponRecord[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
+
+  // Coupon Manager state
+  const [newCouponCode, setNewCouponCode] = useState("");
+  const [newCouponDiscount, setNewCouponDiscount] = useState("");
+  const [newCouponExpiry, setNewCouponExpiry] = useState("");
+  const [couponActionError, setCouponActionError] = useState("");
+  const [couponActionSuccess, setCouponActionSuccess] = useState("");
+  const [isSubmittingCoupon, setIsSubmittingCoupon] = useState(false);
 
   const navigate = useNavigate();
 
@@ -128,14 +149,15 @@ export default function AdminPanel() {
       const headers = { "Authorization": `Bearer ${token}` };
 
       // Parallel fetching for high performance and clean load
-      const [statsRes, ordersRes, feedbacksRes] = await Promise.all([
+      const [statsRes, ordersRes, feedbacksRes, couponsRes] = await Promise.all([
         fetch("/api/admin/stats", { headers }),
         fetch("/api/admin/orders", { headers }),
-        fetch("/api/admin/feedbacks", { headers })
+        fetch("/api/admin/feedbacks", { headers }),
+        fetch("/api/admin/coupons", { headers })
       ]);
 
-      if (!statsRes.ok || !ordersRes.ok || !feedbacksRes.ok) {
-        if (statsRes.status === 401 || ordersRes.status === 401) {
+      if (!statsRes.ok || !ordersRes.ok || !feedbacksRes.ok || !couponsRes.ok) {
+        if (statsRes.status === 401 || ordersRes.status === 401 || couponsRes.status === 401) {
           handleLogout();
           throw new Error("Admin session expired. Please log in again.");
         }
@@ -145,10 +167,12 @@ export default function AdminPanel() {
       const statsData = await statsRes.json();
       const ordersData = await ordersRes.json();
       const feedbacksData = await feedbacksRes.json();
+      const couponsData = await couponsRes.json();
 
       setStats(statsData);
       setOrders(ordersData);
       setFeedbacks(feedbacksData);
+      setCoupons(couponsData);
     } catch (err: any) {
       setErrorMsg(err.message || "Could not sync data from server database");
     } finally {
@@ -166,6 +190,96 @@ export default function AdminPanel() {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const handleAddCoupon = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newCouponCode.trim() || !newCouponDiscount.trim()) {
+      setCouponActionError("Code and Discount percentage are required.");
+      return;
+    }
+
+    const discountNum = parseInt(newCouponDiscount, 10);
+    if (isNaN(discountNum) || discountNum < 1 || discountNum > 100) {
+      setCouponActionError("Discount percentage must be a number between 1 and 100.");
+      return;
+    }
+
+    setCouponActionError("");
+    setCouponActionSuccess("");
+    setIsSubmittingCoupon(true);
+
+    try {
+      const token = localStorage.getItem("hostiva_admin_token");
+      const res = await fetch("/api/admin/coupons", {
+        method: "POST",
+        headers: { 
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({
+          code: newCouponCode.trim(),
+          discount: discountNum,
+          expiresAt: newCouponExpiry ? new Date(newCouponExpiry).toISOString() : undefined
+        })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to create coupon.");
+      }
+
+      setCouponActionSuccess(data.message || `Coupon '${newCouponCode.trim().toUpperCase()}' has been saved!`);
+      setNewCouponCode("");
+      setNewCouponDiscount("");
+      setNewCouponExpiry("");
+      
+      // Refresh coupons list
+      const updatedCouponsRes = await fetch("/api/admin/coupons", {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (updatedCouponsRes.ok) {
+        const updatedCoupons = await updatedCouponsRes.json();
+        setCoupons(updatedCoupons);
+      }
+    } catch (err: any) {
+      setCouponActionError(err.message || "Error creating coupon.");
+    } finally {
+      setIsSubmittingCoupon(false);
+    }
+  };
+
+  const handleDeleteCoupon = async (code: string) => {
+    if (!window.confirm(`Are you sure you want to delete coupon ${code}?`)) return;
+
+    setCouponActionError("");
+    setCouponActionSuccess("");
+
+    try {
+      const token = localStorage.getItem("hostiva_admin_token");
+      const res = await fetch(`/api/admin/coupons/${code}`, {
+        method: "DELETE",
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to delete coupon.");
+      }
+
+      setCouponActionSuccess(`Coupon '${code}' has been deleted.`);
+      
+      // Refresh coupons list
+      const updatedCouponsRes = await fetch("/api/admin/coupons", {
+        headers: { "Authorization": `Bearer ${token}` }
+      });
+      if (updatedCouponsRes.ok) {
+        const updatedCoupons = await updatedCouponsRes.json();
+        setCoupons(updatedCoupons);
+      }
+    } catch (err: any) {
+      setCouponActionError(err.message || "Error deleting coupon.");
+    }
   };
 
   // Filter orders by search
@@ -308,6 +422,16 @@ export default function AdminPanel() {
             }`}
           >
             <MessageSquare className="w-4 h-4" /> AI Feedback ({feedbacks.length})
+          </button>
+          <button 
+            onClick={() => setActiveTab("coupons")}
+            className={`px-5 py-3 text-xs font-bold tracking-widest uppercase border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
+              activeTab === "coupons" 
+                ? 'border-blue-500 text-white' 
+                : 'border-transparent text-gray-400 hover:text-white'
+            }`}
+          >
+            <Tag className="w-4 h-4" /> Coupons ({coupons.length})
           </button>
         </div>
 
@@ -628,6 +752,157 @@ export default function AdminPanel() {
                   </div>
                 )}
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* COUPONS MANAGER TAB */}
+        {activeTab === "coupons" && (
+          <div className="space-y-6 animate-fadeIn">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              
+              {/* Creator Card */}
+              <div className="bg-[#0b0b0b] border border-white/5 rounded-2xl p-6 h-fit">
+                <h3 className="text-sm font-bold uppercase tracking-widest text-white mb-2 flex items-center gap-2">
+                  <Plus className="w-4 h-4 text-blue-400" /> Issue New Coupon
+                </h3>
+                <p className="text-xs text-gray-400 mb-6 font-sans">
+                  Create fully customized percentage discounts linked dynamically to standard order gateways.
+                </p>
+
+                <form onSubmit={handleAddCoupon} className="space-y-4">
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
+                      Coupon Code
+                    </label>
+                    <input 
+                      type="text" 
+                      value={newCouponCode}
+                      onChange={(e) => setNewCouponCode(e.target.value.toUpperCase())}
+                      placeholder="e.g. SUMMER30"
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 font-mono transition-all"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
+                      Discount Value (% Percentage)
+                    </label>
+                    <input 
+                      type="number" 
+                      min="1"
+                      max="100"
+                      value={newCouponDiscount}
+                      onChange={(e) => setNewCouponDiscount(e.target.value)}
+                      placeholder="e.g. 30"
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 font-mono transition-all"
+                      required
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-[10px] font-bold uppercase tracking-wider text-gray-400 mb-1.5">
+                      Expiration Date (Optional)
+                    </label>
+                    <input 
+                      type="datetime-local" 
+                      value={newCouponExpiry}
+                      onChange={(e) => setNewCouponExpiry(e.target.value)}
+                      className="w-full bg-black/50 border border-white/10 rounded-xl px-4 py-2.5 text-xs text-white placeholder-gray-600 focus:outline-none focus:border-blue-500 font-mono transition-all text-gray-300"
+                    />
+                  </div>
+
+                  {couponActionError && (
+                    <div className="bg-red-500/10 border border-red-500/20 rounded-xl p-3 flex items-center gap-2 text-red-500 text-[11px]">
+                      <AlertCircle className="w-3.5 h-3.5 shrink-0" />
+                      <span>{couponActionError}</span>
+                    </div>
+                  )}
+
+                  {couponActionSuccess && (
+                     <div className="bg-emerald-500/10 border border-emerald-500/25 rounded-xl p-3 flex items-center gap-2 text-emerald-400 text-[11px]">
+                      <CheckCircle2 className="w-3.5 h-3.5 shrink-0" />
+                      <span>{couponActionSuccess}</span>
+                    </div>
+                  )}
+
+                  <button 
+                    type="submit"
+                    disabled={isSubmittingCoupon}
+                    className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white font-bold text-xs rounded-xl transition-all cursor-pointer shadow-lg shadow-blue-500/10 flex items-center justify-center gap-2"
+                  >
+                    {isSubmittingCoupon ? "Saving Coupon..." : "Publish Coupon"}
+                  </button>
+                </form>
+              </div>
+
+              {/* Coupons List card */}
+              <div className="bg-[#0b0b0b] border border-white/5 rounded-2xl p-6 lg:col-span-2">
+                <h3 className="text-sm font-bold uppercase tracking-widest text-white mb-2 flex items-center gap-2">
+                  <Tag className="w-4 h-4 text-purple-400" /> Active Promotions ({coupons.length})
+                </h3>
+                <p className="text-xs text-gray-400 mb-6 font-sans">
+                  List of valid host discount authorization keys stored inside database cluster.
+                </p>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  {coupons.length > 0 ? (
+                    coupons.map((coupon, idx) => {
+                      const isExpired = coupon.expiresAt ? new Date(coupon.expiresAt) < new Date() : false;
+                      return (
+                        <div key={idx} className="bg-white/5 border border-white/5 rounded-xl p-5 flex flex-col justify-between space-y-4 hover:border-white/10 transition-all">
+                          <div className="flex justify-between items-start">
+                            <div>
+                              <div className="flex items-center gap-2 mb-1.5">
+                                <span className="bg-blue-500/10 text-blue-400 border border-blue-500/10 px-3 py-1 rounded-lg text-xs font-mono font-bold tracking-wider uppercase border-dashed">
+                                  {coupon.code}
+                                </span>
+                                <span className="bg-purple-900/40 text-purple-300 px-2 py-0.5 rounded text-[10px] font-bold">
+                                  {coupon.discount}% OFF
+                                </span>
+                              </div>
+                              <p className="text-[11px] text-gray-500 font-mono flex items-center gap-1.5 mt-2">
+                                <Calendar className="w-3.5 h-3.5" />
+                                {coupon.expiresAt ? (
+                                  <span>Expires: {new Date(coupon.expiresAt).toLocaleDateString()}</span>
+                                ) : (
+                                  <span>No Expiration Date</span>
+                                )}
+                              </p>
+                            </div>
+
+                            <button 
+                              onClick={() => handleDeleteCoupon(coupon.code)}
+                              className="p-2 bg-red-500/10 hover:bg-red-500 hover:text-white border border-red-500/15 rounded-xl text-red-400 transition-all cursor-pointer"
+                              title="Revoke Coupon"
+                            >
+                              <Trash2 className="w-3.5 h-3.5" />
+                            </button>
+                          </div>
+
+                          <div className="flex justify-between items-center bg-black/40 px-3 py-2 rounded-lg text-[10px]">
+                            <span className="text-gray-400">Total Valid Claims:</span>
+                            <span className="text-purple-300 font-bold font-mono">{coupon.usedCount || 0} usage(s)</span>
+                          </div>
+
+                          <div className="flex items-center gap-1.5">
+                            <span className={`w-2 h-2 rounded-full ${isExpired ? "bg-red-500" : "bg-emerald-500"}`} />
+                            <span className={`text-[10px] font-bold uppercase tracking-wider ${isExpired ? "text-red-400" : "text-emerald-400"}`}>
+                              {isExpired ? "Expired" : "Active & Verified"}
+                            </span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="col-span-full py-16 text-center text-xs text-gray-500 italic bg-black/20 rounded-xl border border-dashed border-white/5">
+                      No discount coupons initialized. Issue one using the panel.
+                    </div>
+                  )}
+                </div>
+              </div>
+
             </div>
           </div>
         )}
