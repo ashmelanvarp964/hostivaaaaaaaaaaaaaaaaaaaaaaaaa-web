@@ -43,8 +43,7 @@ export default function Checkout() {
   const basePrice = plan.price;
   const discountAmount = Math.round(basePrice * (discountPercent / 100));
   const subtotal = basePrice - discountAmount;
-  const gstAmount = Math.round(subtotal * 0.18); // 18% GST (standard for tech services in India)
-  const totalAmount = subtotal + gstAmount;
+  const totalAmount = subtotal;
 
   const [showSandboxModal, setShowSandboxModal] = useState(false);
   const [sandboxOptions, setSandboxOptions] = useState<any>(null);
@@ -347,10 +346,6 @@ export default function Checkout() {
                     <span>-₹{discountAmount}</span>
                   </div>
                 )}
-                <div className="flex justify-between text-gray-400">
-                  <span>G.S.T. / SGST (18%)</span>
-                  <span>₹{gstAmount}</span>
-                </div>
                 <div className="flex justify-between font-bold text-white text-base pt-2 border-t border-dashed border-white/10">
                   <span>Total Due Today</span>
                   <span className="text-blue-500">₹{totalAmount}</span>

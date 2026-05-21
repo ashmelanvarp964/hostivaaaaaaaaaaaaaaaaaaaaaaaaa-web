@@ -326,7 +326,7 @@ export default function AdminPanel() {
                   </p>
                 </div>
                 <div className="text-[10px] text-gray-500 mt-4">
-                  Tax adjusted (inclusive of standard 18% GST).
+                  All prices are net. No hidden taxes or GST applied.
                 </div>
               </div>
 
