@@ -26,7 +26,9 @@ import {
   Bell,
   Download,
   Lock,
-  StickyNote
+  StickyNote,
+  Eye,
+  EyeOff
 } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 
@@ -137,6 +139,7 @@ Administrative Support Officer`
 export default function AdminPanel() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
   const [authError, setAuthError] = useState("");
   const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
 
@@ -646,7 +649,7 @@ export default function AdminPanel() {
         <div className="w-full max-w-md bg-[#0d0d0d] border border-white/5 rounded-2xl p-6 sm:p-8 shadow-2xl">
           <div className="flex flex-col items-center text-center mb-6">
             <div className="p-3 bg-blue-600/10 border border-blue-500/20 rounded-2xl mb-4 text-blue-500 shadow-lg glow-blue">
-              <Shield className="w-8 h-8" />
+              <Shield className="w-8 h-8 font-extrabold animate-pulse" />
             </div>
             <h1 className="text-2xl font-bold font-display tracking-tight text-white mb-2">Hostiva Central Command</h1>
             <p className="text-xs text-gray-400">Please provide administrative passcode to authenticate database access.</p>
@@ -659,15 +662,41 @@ export default function AdminPanel() {
               </label>
               <div className="relative">
                 <input 
-                  type="password" 
+                  type={showPassword ? "text" : "password"} 
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="Enter admin key passcode..."
-                  className="w-full bg-[#111] text-white border border-white/10 rounded-xl py-3 pl-10 pr-4 text-xs font-mono outline-none focus:border-blue-500/50 transition-colors"
+                  className="w-full bg-[#111] text-white border border-white/10 rounded-xl py-3 pl-10 pr-10 text-xs font-mono outline-none focus:border-blue-500/50 transition-colors"
                   required
                 />
                 <KeyRound className="absolute left-3.5 top-3.5 w-4 h-4 text-gray-500" />
+                <button
+                  type="button"
+                  onClick={() => setShowPassword(!showPassword)}
+                  className="absolute right-3.5 top-3 text-gray-500 hover:text-gray-300 transition-colors focus:outline-none"
+                  title={showPassword ? "Hide password" : "Show password"}
+                >
+                  {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
               </div>
+            </div>
+
+            {/* Quick-fill Helper for developers / testers */}
+            <div className="bg-[#121212] border border-white/5 rounded-xl p-3 text-[10px] text-gray-400 flex flex-col gap-1.5 animate-fade-in">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold text-gray-300">🔑 Dev-Access Keys:</span>
+                <span className="text-[9px] bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded uppercase font-bold">Active</span>
+              </div>
+              <div className="flex flex-wrap gap-1.5 mt-1 font-mono">
+                <button 
+                  type="button"
+                  onClick={() => setPassword("Hostiva@2026#Secure!$Admin")} 
+                  className="bg-white/5 hover:bg-white/15 text-white px-2.5 py-1 rounded border border-white/5 transition-all text-[10px] cursor-pointer"
+                >
+                  Hostiva@2026#Secure!$Admin
+                </button>
+              </div>
+              <span className="text-[9.5px] italic text-gray-500 mt-1">💡 Click the key above to automatically load the primary admin password.</span>
             </div>
 
             {authError && (
