@@ -683,24 +683,6 @@ export default function AdminPanel() {
               </div>
             </div>
 
-            {/* Quick-fill Helper for developers / testers */}
-            <div className="bg-[#121212] border border-white/5 rounded-xl p-3 text-[10px] text-gray-400 flex flex-col gap-1.5 animate-fade-in">
-              <div className="flex items-center justify-between">
-                <span className="font-semibold text-gray-300">🔑 Dev-Access Keys:</span>
-                <span className="text-[9px] bg-emerald-500/10 text-emerald-400 px-1.5 py-0.5 rounded uppercase font-bold">Active</span>
-              </div>
-              <div className="flex flex-wrap gap-1.5 mt-1 font-mono">
-                <button 
-                  type="button"
-                  onClick={() => setPassword("Hostiva@2026#Secure!$Admin")} 
-                  className="bg-white/5 hover:bg-white/15 text-white px-2.5 py-1 rounded border border-white/5 transition-all text-[10px] cursor-pointer"
-                >
-                  Hostiva@2026#Secure!$Admin
-                </button>
-              </div>
-              <span className="text-[9.5px] italic text-gray-500 mt-1">💡 Click the key above to automatically load the primary admin password.</span>
-            </div>
-
             {authError && (
               <p className="text-xs text-red-400 bg-red-500/5 border border-red-500/10 p-3 rounded-lg flex items-center gap-2">
                 <XCircle className="w-4 h-4 shrink-0" /> {authError}
