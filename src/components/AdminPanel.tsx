@@ -59,6 +59,8 @@ interface OrderRecord {
   createdAt?: string;
   completedAt?: string;
   serverIp?: string;
+  newUserEmail?: string;
+  newUserTempPassword?: string;
 }
 
 interface FeedbackRecord {
@@ -1139,8 +1141,25 @@ export default function AdminPanel() {
                             </div>
                           </td>
 
-                          <td className="p-4 font-medium max-w-[160px] truncate">
-                            {order.customerEmail}
+                           <td className="p-4 space-y-1 max-w-[190px]">
+                            <div className="font-medium text-white truncate">{order.customerEmail}</div>
+                            {order.newUserTempPassword && (
+                              <div className="flex items-center gap-1 text-[10px] text-emerald-400">
+                                <span className="shrink-0 font-bold uppercase text-[8px] bg-emerald-500/10 border border-emerald-500/20 px-1 py-0.5 rounded text-[8px]">PASS</span>
+                                <span className="font-mono bg-white/[0.02] px-1 py-0.5 rounded">{order.newUserTempPassword}</span>
+                                <button 
+                                  onClick={() => copyToClipboard(order.newUserTempPassword || "", order.orderId + "_pass")}
+                                  className="p-0.5 hover:bg-white/5 rounded text-gray-500 hover:text-white transition-colors"
+                                  title="Copy Temporary Password"
+                                >
+                                  {copiedId === order.orderId + "_pass" ? (
+                                    <span className="text-[9px] text-emerald-400 font-sans font-bold">Copied</span>
+                                  ) : (
+                                    <Copy className="w-3 h-3" />
+                                  )}
+                                </button>
+                              </div>
+                            )}
                           </td>
 
                           <td className="p-4">
