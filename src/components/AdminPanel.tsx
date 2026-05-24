@@ -177,11 +177,9 @@ export default function AdminPanel() {
   const navigate = useNavigate();
 
   useEffect(() => {
-    // Check if token exists
-    const token = localStorage.getItem("hostiva_admin_token");
-    if (token) {
-      setIsAuthenticated(true);
-    }
+    // Enforce strict lock: clear any previous token on every mount so that visitors must authenticate fresh every single time
+    localStorage.removeItem("hostiva_admin_token");
+    setIsAuthenticated(false);
   }, []);
 
   const handleLogin = async (e: React.FormEvent) => {
