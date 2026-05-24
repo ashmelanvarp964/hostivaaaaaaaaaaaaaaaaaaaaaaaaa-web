@@ -1,7 +1,7 @@
 export interface Plan {
   id: string;
   name: string;
-  price: number;
+  price: number | string;
   category: "budget" | "performance";
   hardware: string;
   features: string[];
@@ -9,9 +9,9 @@ export interface Plan {
     cpu: string;
     ram: string;
     disk: string;
-    backups: number;
-    ports: number;
-    databases?: number;
+    backups: number | string;
+    ports: number | string;
+    databases?: number | string;
     nestId: number;
     eggId: number;
     locationId: number;
@@ -22,68 +22,68 @@ export interface Plan {
 }
 
 export const plans: Plan[] = [
-  // PERFORMANCE PLANS (RYZEN 7 7700X)
+  // PERFORMANCE PLANS (ALL POWERED BY AMD RYZEN 9)
   {
     id: "perf-iron",
-    name: "Premium Iron",
-    price: 420,
+    name: "Premium Iron Plan",
+    price: 550,
     category: "performance",
-    hardware: "Ryzen 7 7700X @ 4.491GHz",
-    features: ["High Frequency Gaming CPU", "DDR4 ECC Memory", "NVMe SSD"],
-    specs: { cpu: "200%", ram: "8GB", disk: "20GB", backups: 1, ports: 1, nestId: 1, eggId: 4, locationId: 1, nodeId: 1 }
+    hardware: "AMD RYZEN 9",
+    features: ["High Frequency Ryzen 9 CPU", "DDR4 ECC Memory", "NVMe SSD Storage"],
+    specs: { cpu: "200%", ram: "8 GB", disk: "20 GB", backups: 1, ports: 1, nestId: 1, eggId: 4, locationId: 1, nodeId: 1 }
   },
   {
     id: "perf-gold",
-    name: "Premium Gold",
-    price: 680,
+    name: "Premium Gold Plan",
+    price: 880,
     category: "performance",
-    hardware: "Ryzen 7 7700X @ 4.491GHz",
-    features: ["High Frequency Gaming CPU", "DDR4 ECC Memory", "NVMe SSD"],
-    specs: { cpu: "400%", ram: "16GB", disk: "50GB", backups: 1, ports: 5, nestId: 1, eggId: 4, locationId: 1, nodeId: 1 }
+    hardware: "AMD RYZEN 9",
+    features: ["High Frequency Ryzen 9 CPU", "DDR4 ECC Memory", "NVMe SSD Storage"],
+    specs: { cpu: "400%", ram: "16 GB", disk: "50 GB", backups: 1, ports: 5, nestId: 1, eggId: 4, locationId: 1, nodeId: 1 }
   },
   {
     id: "perf-emerald",
-    name: "Premium Emerald",
-    price: 790,
+    name: "Premium Emerald Plan",
+    price: 1090,
     category: "performance",
-    hardware: "Ryzen 7 7700X @ 4.491GHz",
-    features: ["High Frequency Gaming CPU", "DDR4 ECC Memory", "NVMe SSD"],
-    specs: { cpu: "450%", ram: "24GB", disk: "60GB", backups: 2, ports: 2, nestId: 1, eggId: 4, locationId: 1, nodeId: 1 },
+    hardware: "AMD RYZEN 9",
+    features: ["High Frequency Ryzen 9 CPU", "DDR4 ECC Memory", "NVMe SSD Storage"],
+    specs: { cpu: "450%", ram: "24 GB", disk: "60 GB", backups: 2, ports: 2, nestId: 1, eggId: 4, locationId: 1, nodeId: 1 },
     recommended: true
   },
   {
     id: "perf-obsidian",
-    name: "Premium Obsidian",
-    price: 999,
+    name: "Premium Obsidian Plan",
+    price: 1399,
     category: "performance",
-    hardware: "Ryzen 7 7700X @ 4.491GHz",
-    features: ["High Frequency Gaming CPU", "DDR4 ECC Memory", "NVMe SSD"],
-    specs: { cpu: "500%", ram: "32GB", disk: "80GB", backups: 3, ports: 1, nestId: 1, eggId: 4, locationId: 1, nodeId: 1 }
+    hardware: "AMD RYZEN 9",
+    features: ["High Frequency Ryzen 9 CPU", "DDR4 ECC Memory", "NVMe SSD Storage"],
+    specs: { cpu: "500%", ram: "32 GB", disk: "80 GB", backups: 3, ports: 1, nestId: 1, eggId: 4, locationId: 1, nodeId: 1 }
   },
   {
     id: "perf-netherite",
-    name: "Premium Netherite",
-    price: 1099,
+    name: "Premium Netherite Plan",
+    price: 1699,
     category: "performance",
-    hardware: "Ryzen 7 7700X @ 4.491GHz",
-    features: ["High Frequency Gaming CPU", "DDR4 ECC Memory", "NVMe SSD"],
-    specs: { cpu: "600%", ram: "48GB", disk: "100GB", backups: 4, ports: 2, nestId: 1, eggId: 4, locationId: 1, nodeId: 1 }
+    hardware: "AMD RYZEN 9",
+    features: ["High Frequency Ryzen 9 CPU", "DDR4 ECC Memory", "NVMe SSD Storage"],
+    specs: { cpu: "600%", ram: "48 GB", disk: "100 GB", backups: 4, ports: 2, nestId: 1, eggId: 4, locationId: 1, nodeId: 1 }
   },
   {
     id: "perf-gladiator",
-    name: "Premium Gladiator",
-    price: 1290,
+    name: "Premium Gladiator Plan",
+    price: 2199,
     category: "performance",
-    hardware: "Ryzen 7 7700X @ 4.491GHz",
-    features: ["High Frequency Gaming CPU", "DDR4 ECC Memory", "NVMe SSD"],
-    specs: { cpu: "800%", ram: "64GB", disk: "150GB", backups: 5, ports: 1, nestId: 1, eggId: 4, locationId: 1, nodeId: 1 }
+    hardware: "AMD RYZEN 9",
+    features: ["High Frequency Ryzen 9 CPU", "DDR4 ECC Memory", "NVMe SSD Storage"],
+    specs: { cpu: "800%", ram: "64 GB", disk: "150 GB", backups: 5, ports: 1, nestId: 1, eggId: 4, locationId: 1, nodeId: 1 }
   },
 
-  // BUDGET PLANS (INTEL)
+  // BUDGET PLANS (INTEL / CHEAP NODE)
   {
     id: "budget-classic",
     name: "Classic Plan",
-    price: 50,
+    price: 100,
     category: "budget",
     hardware: "Intel Xeon Node",
     features: ["Affordable Node", "Basic Support", "SSD Storage"],
@@ -93,7 +93,7 @@ export const plans: Plan[] = [
   {
     id: "budget-epic",
     name: "Epic Plan",
-    price: 100,
+    price: 200,
     category: "budget",
     hardware: "Intel Xeon Node",
     features: ["Affordable Node", "Basic Support", "SSD Storage"],
@@ -104,7 +104,7 @@ export const plans: Plan[] = [
   {
     id: "budget-pro",
     name: "Pro Plan",
-    price: 250,
+    price: 300,
     category: "budget",
     hardware: "Intel Xeon Node",
     features: ["Affordable Node", "Standard Support", "SSD Storage"],
@@ -114,7 +114,7 @@ export const plans: Plan[] = [
   {
     id: "budget-power",
     name: "Power Plan",
-    price: 450,
+    price: 400,
     category: "budget",
     hardware: "Intel Xeon Node",
     features: ["Affordable Node", "24/7 Support", "SSD Storage"],
@@ -124,11 +124,20 @@ export const plans: Plan[] = [
   {
     id: "budget-mega",
     name: "Mega Plan",
-    price: 620,
+    price: 600,
     category: "budget",
     hardware: "Intel Xeon Node",
     features: ["Affordable Node", "Priority Support", "SSD Storage"],
     specs: { cpu: "400%", ram: "32GB", disk: "150GB", backups: 7, ports: 5, databases: 5, nestId: 1, eggId: 4, locationId: 1, nodeId: 9 },
     paymentLink: "https://rzp.io/rzp/bR6SsWm"
+  },
+  {
+    id: "budget-custom",
+    name: "Custom Plan",
+    price: "Custom",
+    category: "budget",
+    hardware: "Intel Xeon Node",
+    features: ["Custom Ram Allocation", "Custom Disk SSD Space", "SLA Support Setup"],
+    specs: { cpu: "Custom", ram: "Custom", disk: "Custom", backups: "Custom", ports: "Custom", databases: "Custom", nestId: 1, eggId: 4, locationId: 1, nodeId: 9 }
   }
 ];

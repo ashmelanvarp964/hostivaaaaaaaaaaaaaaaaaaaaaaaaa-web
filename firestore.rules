@@ -11,6 +11,10 @@ service cloud.firestore {
     function isOwner(userId) { return isSignedIn() && request.auth.uid == userId; }
     function isAdmin() { return isSignedIn() && request.auth.token.email == 'ashmelanvarp964@gmail.com'; }
     function isValidId(id) { return id is string && id.size() <= 128 && id.matches('^[a-zA-Z0-9_\\-]+$'); }
+    function isValidTicket(data) {
+      return (data.priority == 'LOW' || data.priority == 'MEDIUM' || data.priority == 'HIGH') &&
+             (data.status == 'OPEN' || data.status == 'REPLIED' || data.status == 'CLOSED');
+    }
 
     // User Profile
     match /users/{uid} {
@@ -47,8 +51,8 @@ service cloud.firestore {
     match /tickets/{ticketId} {
       // Allow read if the user is an admin or is the owner of the ticket
       allow read: if isSignedIn() && (isAdmin() || (resource != null && resource.data.userId == request.auth.uid));
-      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid;
-      allow update: if isSignedIn() && (isAdmin() || (resource != null && resource.data.userId == request.auth.uid));
+      allow create: if isSignedIn() && request.resource.data.userId == request.auth.uid && isValidTicket(request.resource.data);
+      allow update: if isSignedIn() && (isAdmin() || (resource != null && resource.data.userId == request.auth.uid && isValidTicket(request.resource.data)));
     }
   }
 }

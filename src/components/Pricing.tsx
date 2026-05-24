@@ -51,8 +51,8 @@ export default function Pricing() {
           
           <p className="text-gray-400 max-w-xl mx-auto italic text-sm">
             {category === 'performance' 
-              ? "High-end Ryzen 7 7700X @ 4.491GHz hardware for maximum performance gaming." 
-              : "Affordable hosting on Intel nodes. Perfect for small communities."}
+              ? "All Plans are Powered by AMD RYZEN 9 for maximum performance gaming." 
+              : "Affordable hosting on cheap Intel Xeon nodes. Perfect for small communities."}
           </p>
         </div>
 
@@ -83,8 +83,10 @@ export default function Pricing() {
               <div className="mb-8">
                 <h3 className="text-xl font-bold mb-2">{plan.name}</h3>
                 <div className="flex items-baseline gap-1">
-                  <span className="text-4xl font-bold tracking-tighter">₹{plan.price}</span>
-                  <span className="text-gray-500">/mo</span>
+                  <span className="text-4xl font-bold tracking-tighter">
+                    {typeof plan.price === "number" ? `₹${plan.price}` : `₹${plan.price}`}
+                  </span>
+                  {typeof plan.price === "number" && <span className="text-gray-500">/mo</span>}
                 </div>
               </div>
 
@@ -130,14 +132,14 @@ export default function Pricing() {
               </ul>
 
               <Link
-                to={`/checkout/${plan.id}`}
+                to={plan.id === "budget-custom" ? "/support" : `/checkout/${plan.id}`}
                 className={`w-full py-4 rounded-xl font-bold text-center transition-all ${
-                  plan.recommended 
+                  plan.recommended || plan.id === "budget-custom"
                     ? 'bg-blue-600 hover:bg-blue-500 text-white glow-blue shadow-[0_0_20px_-5px_rgba(59,130,246,0.5)]' 
                     : 'bg-white/5 hover:bg-white/10 text-white'
                 }`}
               >
-                Get Started
+                {plan.id === "budget-custom" ? "Contact Support" : "Get Started"}
               </Link>
             </motion.div>
           ))}

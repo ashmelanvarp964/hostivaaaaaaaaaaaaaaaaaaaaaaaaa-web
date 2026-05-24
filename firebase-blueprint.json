@@ -37,6 +37,7 @@
         "email": { "type": "string" },
         "subject": { "type": "string" },
         "message": { "type": "string" },
+        "priority": { "type": "string", "enum": ["LOW", "MEDIUM", "HIGH"] },
         "status": { "type": "string", "enum": ["OPEN", "REPLIED", "CLOSED"] },
         "createdAt": { "type": "string", "format": "date-time" },
         "replies": {
@@ -51,7 +52,8 @@
           }
         }
       },
-      "required": ["id", "userId", "email", "subject", "message", "status", "createdAt"]
+      "required": ["id", "userId", "email", "subject", "message", "priority", "status", "createdAt"]
+    },
     "Settings": {
       "title": "Settings",
       "description": "Global application configuration.",

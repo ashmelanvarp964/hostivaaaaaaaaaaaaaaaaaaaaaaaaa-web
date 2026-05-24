@@ -23,13 +23,10 @@ export default function Checkout() {
   const plan = plans.find(p => p.id === planId);
 
   useEffect(() => {
-    if (!authLoading && !user) {
-      // Save checkout intent URL and redirect
-      navigate(`/login?redirect=/checkout/${planId}`);
-    } else if (user?.email) {
+    if (!authLoading && user?.email) {
       setPanelEmail(user.email);
     }
-  }, [user, authLoading, planId, navigate]);
+  }, [user, authLoading]);
 
   if (authLoading || !plan) {
     return (
@@ -40,7 +37,7 @@ export default function Checkout() {
   }
 
   // Cost breakdown
-  const basePrice = plan.price;
+  const basePrice = typeof plan.price === "number" ? plan.price : 0;
   const discountAmount = Math.round(basePrice * (discountPercent / 100));
   const subtotal = basePrice - discountAmount;
   const totalAmount = subtotal;
@@ -256,6 +253,23 @@ export default function Checkout() {
               <h3 className="font-bold text-lg border-b border-white/5 pb-3">1. Pterodactyl Sync</h3>
               
               <div>
+                {!user && (
+                  <div className="mb-4 bg-blue-500/10 border border-blue-500/20 rounded-xl p-4 text-xs text-gray-300">
+                    <p className="font-semibold text-blue-400 mb-1">Checking Out as Guest</p>
+                    <p className="leading-normal">
+                      Since you are not logged in, we will <strong>automatically create a secure Hostiva billing account</strong> for you under this email address. 
+                      Your login temporary passcode, server connect specs, and panel links will be shown on the success screen and emailed to you instantly.
+                    </p>
+                    <p className="mt-2 text-[10px] text-gray-500">
+                      Already have an account?{" "}
+                      <Link to={`/login?redirect=/checkout/${planId}`} className="text-blue-400 font-bold hover:underline">
+                        Sign In Now
+                      </Link>{" "}
+                      to sync under your current server portfolio.
+                    </p>
+                  </div>
+                )}
+
                 <label className="block text-[10px] font-bold text-gray-500 uppercase mb-2 tracking-widest">
                   Target Game Panel Email Address
                 </label>

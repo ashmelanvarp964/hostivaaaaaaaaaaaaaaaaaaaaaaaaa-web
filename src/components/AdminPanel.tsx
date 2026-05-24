@@ -21,7 +21,12 @@ import {
   Trash2,
   Plus,
   Calendar,
-  AlertCircle
+  AlertCircle,
+  Ticket,
+  Bell,
+  Download,
+  Lock,
+  StickyNote
 } from "lucide-react";
 import { useNavigate, Link } from "react-router-dom";
 
@@ -32,6 +37,7 @@ interface AdminStats {
   failedProvisions: number;
   planStats: Record<string, number>;
   userCount: number;
+  isFirestoreFallback?: boolean;
 }
 
 interface OrderRecord {
@@ -69,6 +75,65 @@ interface CouponRecord {
   usedCount: number;
 }
 
+const SAVED_TEMPLATES = [
+  {
+    title: "🔑 Password Reset Help",
+    text: `Hello,
+
+We have initiated a core panel authentication key reset procedure for your account.
+
+Please perform the following steps:
+1. Navigate to the Game Control Panel (https://cp.hostivaa.xyz)
+2. Select the "Forgot Password / Reset Link" option.
+3. Check your incoming spam or junk inbox folder for a secure validation token.
+
+Let us know if you continue facing any obstacles.
+
+Administrative Support Officer`
+  },
+  {
+    title: "🚀 Server Migration",
+    text: `Hello,
+
+Thank you for requesting cluster level resource migration.
+
+To safely queue your server files for transfer with 0% data loss:
+1. Safely stop your game instance from the console tab in CP.
+2. Back up any system-critical files (like user data, configurations, plugins) via the file manager.
+3. Confirm your target datacenter preference so our automation script can reallocate your hardware.
+
+Let us know your confirmed schedule.
+
+Administrative Support Officer`
+  },
+  {
+    title: "⚡ Node Offline / Latency",
+    text: `Hello,
+
+We detected minor latency fluctuations on the active hardware node.
+
+Our systems status overview has completed automatic fallback re-routing. If your game indicates "Offline", please perform a hard reboot action from the Game Control Panel. It might take up to 2 minutes for network handshakes to fully establish connection.
+
+Thank you for your cooperation.
+
+Administrative Support Officer`
+  },
+  {
+    title: "📊 Resources / Upgrades",
+    text: `Hello,
+
+Review of your game logs shows your current instance is exceeding RAM/CPU limitations during heavy cycles.
+
+To resolve this and avoid automated protection restarts:
+1. Consider optimizing heavy plugins, mods, or active tasks.
+2. Upgrade your active service tier easily inside your Services Billing portal under "Manage Subscriptions".
+
+We are here if you require custom resource pools.
+
+Administrative Support Officer`
+  }
+];
+
 export default function AdminPanel() {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
   const [password, setPassword] = useState("");
@@ -76,12 +141,22 @@ export default function AdminPanel() {
   const [isSubmittingAuth, setIsSubmittingAuth] = useState(false);
 
   // States
-  const [activeTab, setActiveTab] = useState<"stats" | "orders" | "feedback" | "coupons">("stats");
+  const [activeTab, setActiveTab] = useState<"stats" | "orders" | "feedback" | "coupons" | "tickets">("stats");
   const [stats, setStats] = useState<AdminStats | null>(null);
   const [orders, setOrders] = useState<OrderRecord[]>([]);
   const [feedbacks, setFeedbacks] = useState<FeedbackRecord[]>([]);
   const [coupons, setCoupons] = useState<CouponRecord[]>([]);
+  const [tickets, setTickets] = useState<any[]>([]);
+  const [selectedTicket, setSelectedTicket] = useState<any | null>(null);
+  const [adminReplyText, setAdminReplyText] = useState("");
+  const [internalNoteText, setInternalNoteText] = useState("");
+  const [isSubmittingReply, setIsSubmittingReply] = useState(false);
+  const [isSubmittingNote, setIsSubmittingNote] = useState(false);
+  const [notesActiveTab, setNotesActiveTab] = useState<"PUBLIC" | "INTERNAL">("PUBLIC");
+  const [ticketActionError, setTicketActionError] = useState("");
+  const [ticketActionSuccess, setTicketActionSuccess] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
+  const [ticketStatusFilter, setTicketStatusFilter] = useState<"ALL" | "OPEN" | "REPLIED" | "CLOSED">("ALL");
   const [copiedId, setCopiedId] = useState<string | null>(null);
   const [refreshing, setRefreshing] = useState(false);
   const [errorMsg, setErrorMsg] = useState("");
@@ -149,14 +224,15 @@ export default function AdminPanel() {
       const headers = { "Authorization": `Bearer ${token}` };
 
       // Parallel fetching for high performance and clean load
-      const [statsRes, ordersRes, feedbacksRes, couponsRes] = await Promise.all([
+      const [statsRes, ordersRes, feedbacksRes, couponsRes, ticketsRes] = await Promise.all([
         fetch("/api/admin/stats", { headers }),
         fetch("/api/admin/orders", { headers }),
         fetch("/api/admin/feedbacks", { headers }),
-        fetch("/api/admin/coupons", { headers })
+        fetch("/api/admin/coupons", { headers }),
+        fetch("/api/admin/tickets", { headers })
       ]);
 
-      if (!statsRes.ok || !ordersRes.ok || !feedbacksRes.ok || !couponsRes.ok) {
+      if (!statsRes.ok || !ordersRes.ok || !feedbacksRes.ok || !couponsRes.ok || !ticketsRes.ok) {
         if (statsRes.status === 401 || ordersRes.status === 401 || couponsRes.status === 401) {
           handleLogout();
           throw new Error("Admin session expired. Please log in again.");
@@ -168,11 +244,21 @@ export default function AdminPanel() {
       const ordersData = await ordersRes.json();
       const feedbacksData = await feedbacksRes.json();
       const couponsData = await couponsRes.json();
+      const ticketsData = await ticketsRes.json();
 
       setStats(statsData);
       setOrders(ordersData);
       setFeedbacks(feedbacksData);
       setCoupons(couponsData);
+      setTickets(ticketsData);
+
+      // Keep selected ticket state up-to-date with new replies
+      if (selectedTicket) {
+        const updatedSelected = ticketsData.find((t: any) => t.id === selectedTicket.id);
+        if (updatedSelected) {
+          setSelectedTicket(updatedSelected);
+        }
+      }
     } catch (err: any) {
       setErrorMsg(err.message || "Could not sync data from server database");
     } finally {
@@ -190,6 +276,137 @@ export default function AdminPanel() {
     navigator.clipboard.writeText(text);
     setCopiedId(id);
     setTimeout(() => setCopiedId(null), 2000);
+  };
+
+  const getOverdueUnrepliedCount = () => {
+    const now = Date.now();
+    const oneDayMs = 24 * 60 * 60 * 1000;
+    return tickets.filter(t => {
+      if ((t.status || "").toUpperCase() !== "OPEN") return false;
+      const replies = t.replies || [];
+      
+      let lastAdminIndex = -1;
+      for (let i = replies.length - 1; i >= 0; i--) {
+        if ((replies[i].sender || "").toUpperCase() === "ADMIN") {
+          lastAdminIndex = i;
+          break;
+        }
+      }
+      
+      let pendingSince = t.createdAt?.toDate ? t.createdAt.toDate().getTime() : (t.createdAt ? new Date(t.createdAt).getTime() : 0);
+      
+      if (lastAdminIndex !== -1) {
+        const userRepliesAfter = replies.slice(lastAdminIndex + 1).filter((r: any) => (r.sender || "").toUpperCase() === "USER");
+        if (userRepliesAfter.length > 0) {
+          const lastUserMsg = userRepliesAfter[userRepliesAfter.length - 1];
+          pendingSince = lastUserMsg.timestamp ? new Date(lastUserMsg.timestamp).getTime() : pendingSince;
+        } else {
+          return false;
+        }
+      } else {
+        const userReplies = replies.filter((r: any) => (r.sender || "").toUpperCase() === "USER");
+        if (userReplies.length > 0) {
+          const lastUserMsg = userReplies[userReplies.length - 1];
+          pendingSince = lastUserMsg.timestamp ? new Date(lastUserMsg.timestamp).getTime() : pendingSince;
+        }
+      }
+      
+      return (now - pendingSince) > oneDayMs;
+    }).length;
+  };
+
+  const overdueCount = getOverdueUnrepliedCount();
+
+  const filteredTickets = tickets.filter(t => {
+    if (ticketStatusFilter === "ALL") return true;
+    const tStatus = (t.status || "OPEN").toUpperCase();
+    if (ticketStatusFilter === "CLOSED") {
+      return tStatus === "CLOSED" || (tStatus !== "OPEN" && tStatus !== "REPLIED");
+    }
+    return tStatus === ticketStatusFilter;
+  });
+
+  const exportTicketsToCSV = () => {
+    if (tickets.length === 0) return;
+    
+    const headers = [
+      "Ticket ID",
+      "Created At",
+      "Customer Email",
+      "Subject",
+      "Priority",
+      "Status",
+      "Initial Message",
+      "Total Replies"
+    ];
+    
+    const rows = tickets.map(t => {
+      const createdAtStr = t.createdAt 
+        ? (t.createdAt.toDate ? t.createdAt.toDate().toISOString() : new Date(t.createdAt).toISOString())
+        : "";
+      return [
+        t.id || "",
+        createdAtStr,
+        t.email || "",
+        t.subject || "",
+        t.priority || "MEDIUM",
+        t.status || "OPEN",
+        t.message || "",
+        t.replies ? t.replies.length : 0
+      ];
+    });
+
+    const csvRows = [headers.join(",")];
+    for (const row of rows) {
+      const escapedRow = row.map(val => {
+        const str = (val === null || val === undefined) ? "" : String(val);
+        return `"${str.replace(/"/g, '""')}"`;
+      });
+      csvRows.push(escapedRow.join(","));
+    }
+    
+    const csvString = csvRows.join("\r\n");
+    const blob = new Blob([csvString], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `hostiva_support_tickets_${new Date().toISOString().split('T')[0]}.csv`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
+  const exportTicketsToJSON = () => {
+    if (tickets.length === 0) return;
+    
+    const formattedTickets = tickets.map(t => {
+      const createdAtStr = t.createdAt 
+        ? (t.createdAt.toDate ? t.createdAt.toDate().toISOString() : new Date(t.createdAt).toISOString())
+        : "";
+        
+      return {
+        id: t.id,
+        createdAt: createdAtStr,
+        email: t.email,
+        subject: t.subject,
+        message: t.message,
+        priority: t.priority || "MEDIUM",
+        status: t.status || "OPEN",
+        replies: t.replies || []
+      };
+    });
+    
+    const jsonString = JSON.stringify(formattedTickets, null, 2);
+    const blob = new Blob([jsonString], { type: "application/json;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.setAttribute("href", url);
+    link.setAttribute("download", `hostiva_support_tickets_${new Date().toISOString().split('T')[0]}.json`);
+    link.style.visibility = "hidden";
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const handleAddCoupon = async (e: React.FormEvent) => {
@@ -282,6 +499,136 @@ export default function AdminPanel() {
     }
   };
 
+  const handleAdminReply = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!adminReplyText.trim() || !selectedTicket) return;
+
+    setTicketActionError("");
+    setTicketActionSuccess("");
+    setIsSubmittingReply(true);
+
+    try {
+      const token = localStorage.getItem("hostiva_admin_token");
+      const res = await fetch(`/api/admin/tickets/${selectedTicket.id}/reply`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ message: adminReplyText.trim() })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to submit response.");
+      }
+
+      setTicketActionSuccess("Response published successfully.");
+      setAdminReplyText("");
+      
+      // Refresh data
+      await fetchAdminData();
+    } catch (err: any) {
+      setTicketActionError(err.message || "Error submitting response to support ticket.");
+    } finally {
+      setIsSubmittingReply(false);
+    }
+  };
+
+  const handleSaveInternalNote = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!internalNoteText.trim() || !selectedTicket) return;
+
+    setTicketActionError("");
+    setTicketActionSuccess("");
+    setIsSubmittingNote(true);
+
+    try {
+      const token = localStorage.getItem("hostiva_admin_token");
+      const res = await fetch(`/api/admin/tickets/${selectedTicket.id}/notes`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ note: internalNoteText.trim() })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to save internal note.");
+      }
+
+      setTicketActionSuccess("Internal note added successfully.");
+      setInternalNoteText("");
+      
+      // Refresh data to pull the latest internal notes
+      await fetchAdminData();
+    } catch (err: any) {
+      setTicketActionError(err.message || "Error saving internal note to support ticket.");
+    } finally {
+      setIsSubmittingNote(false);
+    }
+  };
+
+  const handleUpdateTicketStatus = async (ticketId: string, status: string) => {
+    setTicketActionError("");
+    setTicketActionSuccess("");
+
+    try {
+      const token = localStorage.getItem("hostiva_admin_token");
+      const res = await fetch(`/api/admin/tickets/${ticketId}/status`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ status })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update status.");
+      }
+
+      setTicketActionSuccess(`Ticket status updated to ${status}.`);
+      
+      // Refresh data
+      await fetchAdminData();
+    } catch (err: any) {
+      setTicketActionError(err.message || "Error changing ticket status on server.");
+    }
+  };
+
+  const handleUpdateTicketPriority = async (ticketId: string, priority: string) => {
+    setTicketActionError("");
+    setTicketActionSuccess("");
+
+    try {
+      const token = localStorage.getItem("hostiva_admin_token");
+      const res = await fetch(`/api/admin/tickets/${ticketId}/priority`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${token}`
+        },
+        body: JSON.stringify({ priority })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data.error || "Failed to update priority.");
+      }
+
+      setTicketActionSuccess(`Ticket priority updated to ${priority}.`);
+      
+      // Refresh data
+      await fetchAdminData();
+    } catch (err: any) {
+      setTicketActionError(err.message || "Error changing ticket priority on server.");
+    }
+  };
+
   // Filter orders by search
   const filteredOrders = orders.filter(o => 
     o.orderId.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -348,6 +695,33 @@ export default function AdminPanel() {
     );
   }
 
+  const timelineItems = selectedTicket 
+    ? [
+        {
+          type: "CLIENT_ORIGINAL",
+          sender: "CLIENT",
+          message: selectedTicket.message,
+          timestamp: selectedTicket.createdAt
+        },
+        ...(selectedTicket.replies || []).map((r: any) => ({
+          type: "PUBLIC_REPLY",
+          sender: r.sender,
+          message: r.message,
+          timestamp: r.timestamp
+        })),
+        ...(selectedTicket.internalNotes || []).map((n: any) => ({
+          type: "INTERNAL_NOTE",
+          sender: "ADMIN_STAFF",
+          message: n.note,
+          timestamp: n.timestamp
+        }))
+      ].sort((a, b) => {
+        const timeA = a.timestamp ? new Date(a.timestamp).getTime() : 0;
+        const timeB = b.timestamp ? new Date(b.timestamp).getTime() : 0;
+        return timeA - timeB;
+      })
+    : [];
+
   return (
     <div className="pt-24 pb-20 min-h-screen px-4 bg-[#050505] text-gray-100">
       <div className="max-w-7xl mx-auto">
@@ -366,6 +740,20 @@ export default function AdminPanel() {
           </div>
 
           <div className="flex items-center gap-3">
+            {/* Overdue Tickets Bell Notification */}
+            <button
+              onClick={() => setActiveTab("tickets")}
+              className="relative p-2.5 bg-white/5 hover:bg-white/10 text-gray-300 border border-white/10 rounded-xl transition-all cursor-pointer flex items-center justify-center hover:scale-105 active:scale-95"
+              title={`${overdueCount} ticket(s) unreplied for more than 24 hours`}
+            >
+              <Bell className={`w-4 h-4 ${overdueCount > 0 ? "text-amber-400 animate-pulse" : "text-gray-400"}`} />
+              {overdueCount > 0 && (
+                <span className="absolute -top-1.5 -right-1.5 flex h-4 w-4 items-center justify-center rounded-full bg-red-600 text-[9px] font-extrabold text-white ring-2 ring-[#050505] shadow-lg animate-fadeIn">
+                  {overdueCount}
+                </span>
+              )}
+            </button>
+
             <button 
               onClick={fetchAdminData}
               disabled={refreshing}
@@ -433,11 +821,35 @@ export default function AdminPanel() {
           >
             <Tag className="w-4 h-4" /> Coupons ({coupons.length})
           </button>
+          <button 
+            onClick={() => setActiveTab("tickets")}
+            className={`px-5 py-3 text-xs font-bold tracking-widest uppercase border-b-2 transition-all cursor-pointer flex items-center gap-2 ${
+              activeTab === "tickets" 
+                ? 'border-blue-500 text-white' 
+                : 'border-transparent text-gray-400 hover:text-white'
+            }`}
+          >
+            <Ticket className="w-4 h-4" /> Support Tickets ({tickets.length})
+          </button>
         </div>
 
         {/* METRICS & STATS TAB */}
         {activeTab === "stats" && (
           <div className="space-y-8 animate-fadeIn">
+            {stats?.isFirestoreFallback && (
+              <div className="bg-yellow-500/5 border border-yellow-500/10 rounded-2xl p-5 flex items-start gap-3.5">
+                <AlertCircle className="w-5 h-5 text-yellow-500 shrink-0 mt-0.5" />
+                <div>
+                  <h4 className="text-xs font-bold text-yellow-500 uppercase tracking-wider">Cloud Credentials Warning (Sandbox Mode Active)</h4>
+                  <p className="text-[11px] text-gray-400 mt-1 leading-relaxed">
+                    Unable to load secure Google Application Credentials on this server. Hostiva is currently running in <strong>automatic memory-safe fallback</strong>. 
+                    All transactions, payments, and server provisions will still complete and execute successfully, backed by our smart sandbox simulation!
+                    To deploy persistent Firestore records to your database, supply your <span className="text-white font-mono font-bold">FIREBASE_SERVICE_ACCOUNT</span> JSON secret in settings.
+                  </p>
+                </div>
+              </div>
+            )}
+
             {/* Bento Grid Analytics Row */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <div className="bg-[#0b0b0b] border border-white/5 rounded-2xl p-5 flex flex-col justify-between">
@@ -496,6 +908,74 @@ export default function AdminPanel() {
                 </div>
                 <div className="text-[10px] text-gray-500 mt-4">
                   Synced directly with panel users.
+                </div>
+              </div>
+            </div>
+
+            {/* Hosting Financial Profit & Loss Dashboard Board */}
+            <div className="bg-[#0b0b0b] border border-white/5 rounded-2xl p-6 shadow-2xl">
+              <h3 className="text-sm font-bold uppercase tracking-widest text-white mb-6 flex items-center gap-2">
+                <TrendingUp className="w-4 h-4 text-emerald-500" /> Hostiva Financial Profit Board
+              </h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+                {/* Net Profit Card */}
+                <div className="bg-emerald-500/5 border border-emerald-500/10 rounded-xl p-5 flex flex-col justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold text-emerald-400 uppercase tracking-widest">Net Profit Margin (63%)</span>
+                    <h4 className="text-3xl font-extrabold text-emerald-400 mt-2 font-display">
+                      ₹{stats?.totalRevenue ? Math.round(stats.totalRevenue * 0.63).toLocaleString() : "0"}
+                    </h4>
+                  </div>
+                  <p className="text-[10px] text-gray-400 mt-4 leading-relaxed">
+                    This is your pure profit after deducting Node server electricity/infrastructure, payment processor fees and networking overhead.
+                  </p>
+                </div>
+
+                {/* Expenses Card */}
+                <div className="bg-red-500/5 border border-red-500/10 rounded-xl p-5 flex flex-col justify-between">
+                  <div>
+                    <span className="text-[10px] font-bold text-red-400 uppercase tracking-widest">Total Operating Expenses (37%)</span>
+                    <h4 className="text-3xl font-extrabold text-red-500 mt-2 font-display">
+                      ₹{stats?.totalRevenue ? Math.round(stats.totalRevenue * 0.37).toLocaleString() : "0"}
+                    </h4>
+                  </div>
+                  <p className="text-[10px] text-gray-400 mt-4 leading-relaxed">
+                    Estimated 30% Node Allocation Costs + 2% Razorpay processing rate + 5% domain/system management.
+                  </p>
+                </div>
+
+                {/* Break-Even Speed & Profit Margin Breakdowns */}
+                <div className="space-y-4">
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-gray-400">Node Infrastructure Expense (30%)</span>
+                      <span className="text-gray-300 font-mono font-bold">₹{stats?.totalRevenue ? Math.round(stats.totalRevenue * 0.30).toLocaleString() : "0"}</span>
+                    </div>
+                    <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+                      <div className="bg-red-500/60 h-full rounded-full" style={{ width: "30%" }} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-gray-400">Razorpay Fee & Taxes (2%)</span>
+                      <span className="text-gray-300 font-mono font-bold">₹{stats?.totalRevenue ? Math.round(stats.totalRevenue * 0.02).toLocaleString() : "0"}</span>
+                    </div>
+                    <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+                      <div className="bg-yellow-500/60 h-full rounded-full" style={{ width: "2%" }} />
+                    </div>
+                  </div>
+
+                  <div className="space-y-1.5">
+                    <div className="flex justify-between text-[11px]">
+                      <span className="text-gray-400">Core Net Take-Home (68% pre-tax)</span>
+                      <span className="text-emerald-400 font-mono font-bold">₹{stats?.totalRevenue ? Math.round(stats.totalRevenue * 0.68).toLocaleString() : "0"}</span>
+                    </div>
+                    <div className="w-full bg-white/5 h-1.5 rounded-full overflow-hidden">
+                      <div className="bg-emerald-500 h-full rounded-full" style={{ width: "68%" }} />
+                    </div>
+                  </div>
                 </div>
               </div>
             </div>
@@ -901,6 +1381,419 @@ export default function AdminPanel() {
                     </div>
                   )}
                 </div>
+              </div>
+
+            </div>
+          </div>
+        )}
+
+        {/* SUPPORT TICKETS TAB */}
+        {activeTab === "tickets" && (
+          <div className="space-y-6 animate-fadeIn">
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
+              
+              {/* Ticket selector list - Left column */}
+              <div className="bg-[#0b0b0b] border border-white/5 rounded-2xl p-5 h-full flex flex-col min-h-[500px]">
+                <div className="mb-4">
+                  <h3 className="text-sm font-bold uppercase tracking-widest text-white mb-1.5 flex items-center gap-2">
+                    <Ticket className="w-4 h-4 text-amber-500" /> Incoming Support Tickets
+                  </h3>
+                  <p className="text-xs text-gray-400 font-sans mb-3">
+                    View list of client submissions and current resolution states.
+                  </p>
+                  
+                  {/* Export Options */}
+                  <div className="flex flex-wrap items-center gap-2 border-t border-b border-white/5 py-3 mb-2">
+                    <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest mr-auto">Report Tools:</span>
+                    <button
+                      onClick={exportTicketsToCSV}
+                      disabled={tickets.length === 0}
+                      className="py-1.5 px-3 bg-white/5 hover:bg-white/10 active:scale-95 disabled:opacity-40 disabled:pointer-events-none text-gray-300 border border-white/5 rounded-lg text-[10px] font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                      title="Export Support Tickets to CSV"
+                    >
+                      <Download className="w-3 h-3 text-emerald-400" />
+                      <span>Export CSV</span>
+                    </button>
+                    <button
+                      onClick={exportTicketsToJSON}
+                      disabled={tickets.length === 0}
+                      className="py-1.5 px-3 bg-white/5 hover:bg-white/10 active:scale-95 disabled:opacity-40 disabled:pointer-events-none text-gray-300 border border-white/5 rounded-lg text-[10px] font-bold flex items-center gap-1.5 transition-all cursor-pointer"
+                      title="Export Support Tickets to JSON"
+                    >
+                      <Download className="w-3 h-3 text-purple-400" />
+                      <span>Export JSON</span>
+                    </button>
+                  </div>
+
+                  {/* Dynamic Status Filter Segment Bar */}
+                  <div className="flex gap-1 p-1 bg-black/40 border border-white/5 rounded-xl text-[10px] font-bold mt-3 mb-1">
+                    {(["ALL", "OPEN", "REPLIED", "CLOSED"] as const).map((status) => {
+                      const count = status === "ALL" 
+                        ? tickets.length 
+                        : tickets.filter(t => {
+                            const tStatus = (t.status || "OPEN").toUpperCase();
+                            if (status === "CLOSED") {
+                              return tStatus === "CLOSED" || (tStatus !== "OPEN" && tStatus !== "REPLIED");
+                            }
+                            return tStatus === status;
+                          }).length;
+                      
+                      const isCurrent = ticketStatusFilter === status;
+                      return (
+                        <button
+                          key={status}
+                          onClick={() => setTicketStatusFilter(status)}
+                          className={`flex-1 py-1.5 px-1 rounded-lg text-center transition-all cursor-pointer border ${
+                            isCurrent 
+                              ? "bg-blue-600/15 text-blue-400 border-blue-500/20 shadow-md shadow-blue-500/5 font-extrabold" 
+                              : "text-gray-400 hover:text-white hover:bg-white/5 border-transparent"
+                          }`}
+                        >
+                          {status} <span className="opacity-50 font-mono text-[9px]">({count})</span>
+                        </button>
+                      );
+                    })}
+                  </div>
+                </div>
+
+                <div className="space-y-2 mt-2 flex-grow overflow-y-auto max-h-[600px] pr-1">
+                  {filteredTickets.length > 0 ? (
+                    filteredTickets.map((t) => {
+                      const isActive = selectedTicket && selectedTicket.id === t.id;
+                      const hasReplies = t.replies && t.replies.length > 0;
+                      
+                      return (
+                        <div 
+                          key={t.id}
+                          onClick={() => {
+                            setSelectedTicket(t);
+                            setTicketActionError("");
+                            setTicketActionSuccess("");
+                            setNotesActiveTab("PUBLIC");
+                            setInternalNoteText("");
+                          }}
+                          className={`w-full text-left p-4 rounded-xl border transition-all cursor-pointer border-l-4 overflow-hidden ${
+                            t.priority === "HIGH" 
+                              ? "border-l-red-500" 
+                              : t.priority === "MEDIUM"
+                                ? "border-l-amber-500"
+                                : "border-l-gray-500"
+                          } ${
+                            isActive 
+                              ? 'bg-blue-600/10 border-t-blue-500/30 border-r-blue-500/30 border-b-blue-500/30 shadow-md shadow-blue-500/5' 
+                              : 'bg-white/5 border-t-white/5 border-r-white/5 border-b-white/5 hover:border-t-white/15 hover:border-r-white/15 hover:border-b-white/15'
+                          }`}
+                        >
+                          <div className="flex justify-between items-start gap-2 mb-1.5">
+                            <div className="flex items-center gap-1.5 min-w-0">
+                              {t.priority === "HIGH" ? (
+                                <span className="w-2 h-2 rounded-full bg-red-500 animate-pulse shrink-0 shadow-lg shadow-red-500/50" />
+                              ) : t.priority === "MEDIUM" ? (
+                                <span className="w-2 h-2 rounded-full bg-amber-500 shrink-0 shadow-lg shadow-amber-500/50" />
+                              ) : (
+                                <span className="w-2 h-2 rounded-full bg-gray-500 shrink-0" />
+                              )}
+                              <span className="font-semibold text-xs text-white line-clamp-1">{t.subject || "No Subject"}</span>
+                            </div>
+                            
+                            {/* Badges */}
+                            <div className="flex gap-1.5 shrink-0 items-center">
+                              <span className={`px-1.5 py-0.5 rounded text-[8px] font-black uppercase font-mono tracking-wider border ${
+                                t.priority === "HIGH" 
+                                  ? "bg-red-500/20 text-red-400 border-red-500/30" 
+                                  : t.priority === "MEDIUM"
+                                    ? "bg-amber-500/20 text-amber-400 border-amber-500/30"
+                                    : "bg-gray-500/15 text-gray-400 border-white/5"
+                              }`}>
+                                {t.priority || "MEDIUM"}
+                              </span>
+                              <span className={`px-2 py-0.5 rounded text-[9px] font-extrabold uppercase font-mono tracking-wider ${
+                                t.status === "OPEN" 
+                                  ? "bg-amber-500/10 text-amber-400 border border-amber-500/15" 
+                                  : t.status === "REPLIED" 
+                                    ? "bg-blue-500/10 text-blue-400 border border-blue-500/15" 
+                                    : "bg-emerald-500/10 text-emerald-400 border border-emerald-500/15"
+                              }`}>
+                                {t.status || "OPEN"}
+                              </span>
+                            </div>
+                          </div>
+
+                          <span className="block text-[10.5px] text-gray-400 truncate mb-2">{t.email || "anonymous"}</span>
+                          
+                          <div className="flex justify-between items-center text-[10px] text-gray-500 font-mono">
+                            <span>{new Date(t.createdAt).toLocaleDateString()}</span>
+                            <span>{hasReplies ? `${t.replies.length} message(s)` : "No messages"}</span>
+                          </div>
+                        </div>
+                      );
+                    })
+                  ) : (
+                    <div className="py-16 px-4 text-center text-xs text-gray-500 italic bg-black/25 rounded-xl border border-white/5 leading-relaxed">
+                      {tickets.length > 0 ? (
+                        <span>No tickets found matching the status filter <strong>"{ticketStatusFilter}"</strong>.</span>
+                      ) : (
+                        <span>No tickets present inside systems.</span>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              {/* Chat Viewport and Reply Interface - Right columns */}
+              <div id="support-ticket-view" className="lg:col-span-2 flex flex-col bg-[#0b0b0b] border border-white/5 rounded-2xl overflow-hidden min-h-[500px]">
+                {selectedTicket ? (
+                  <div className="flex flex-col h-full flex-grow p-6">
+                    {/* Header */}
+                    <div className="pb-6 border-b border-white/5 flex flex-col md:flex-row justify-between items-start md:items-center gap-4">
+                      <div>
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className="text-[10px] bg-white/10 text-white font-mono font-bold px-2 py-0.5 rounded uppercase">
+                            ID: {selectedTicket.id.substring(0, 12)}...
+                          </span>
+                          <span className="text-[10.5px] text-gray-400 font-sans">
+                            Submitted: {new Date(selectedTicket.createdAt).toLocaleString()}
+                          </span>
+                        </div>
+                        <h2 className="text-base font-bold text-white mb-1 leading-snug">{selectedTicket.subject}</h2>
+                        <span className="text-xs text-blue-400 font-semibold">{selectedTicket.email}</span>
+                      </div>
+
+                      {/* Triage Selectors */}
+                      <div className="flex flex-wrap items-center gap-4 shrink-0">
+                        {/* Priority Selector */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-gray-500 uppercase tracking-widest font-mono font-bold">Priority:</span>
+                          <select 
+                            value={selectedTicket.priority || "MEDIUM"} 
+                            onChange={(e) => handleUpdateTicketPriority(selectedTicket.id, e.target.value)}
+                            className="bg-black border border-white/10 rounded-xl text-xs py-2 px-3 font-bold text-white outline-none cursor-pointer focus:border-blue-500"
+                          >
+                            <option value="LOW">LOW</option>
+                            <option value="MEDIUM">MEDIUM</option>
+                            <option value="HIGH">HIGH</option>
+                          </select>
+                        </div>
+
+                        {/* Status Selector */}
+                        <div className="flex items-center gap-2">
+                          <span className="text-[10px] text-gray-500 uppercase tracking-widest font-mono font-bold">Status:</span>
+                          <select 
+                            value={selectedTicket.status || "OPEN"} 
+                            onChange={(e) => handleUpdateTicketStatus(selectedTicket.id, e.target.value)}
+                            className="bg-black border border-white/10 rounded-xl text-xs py-2 px-3 font-bold text-white outline-none cursor-pointer focus:border-blue-500"
+                          >
+                            <option value="OPEN">OPEN / UNRESOLVED</option>
+                            <option value="REPLIED">REPLIED</option>
+                            <option value="CLOSED">CLOSED / RESOLVED</option>
+                          </select>
+                        </div>
+                      </div>
+                    </div>
+                       {/* Notification Messages */}
+                    {(ticketActionError || ticketActionSuccess) && (
+                      <div className="mt-4">
+                        {ticketActionError && (
+                          <div className="bg-red-500/10 border border-red-500/15 rounded-xl p-3 flex items-center gap-2 text-red-500 text-xs">
+                            <AlertCircle className="w-4 h-4 shrink-0" />
+                            <span>{ticketActionError}</span>
+                          </div>
+                        )}
+                        {ticketActionSuccess && (
+                          <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-xl p-3 flex items-center gap-2 text-emerald-400 text-xs text-left">
+                            <CheckCircle2 className="w-4 h-4 shrink-0" />
+                            <span>{ticketActionSuccess}</span>
+                          </div>
+                        )}
+                      </div>
+                    )}
+
+                    {/* Conversation log stream */}
+                    <div className="flex-grow overflow-y-auto max-h-[350px] space-y-4 my-6 pr-1 text-left">
+                      {timelineItems.map((item, idx) => {
+                        if (item.type === "CLIENT_ORIGINAL") {
+                          return (
+                            <div key={`client-orig-${idx}`} className="flex items-start gap-3">
+                              <div className="w-8 h-8 rounded-full bg-amber-500/10 border border-amber-500/15 flex items-center justify-center font-bold text-xs text-amber-500 shrink-0">
+                                {selectedTicket.email?.charAt(0).toUpperCase() || "U"}
+                              </div>
+                              <div className="bg-white/5 border border-white/5 rounded-2xl p-4 max-w-[85%] text-xs space-y-1.5 shadow">
+                                <div className="flex justify-between items-center gap-4 text-gray-500 text-[10px] font-mono">
+                                  <span className="font-bold text-gray-300">Client Statement (Original)</span>
+                                  <span>{new Date(item.timestamp).toLocaleTimeString()}</span>
+                                </div>
+                                <p className="text-gray-100 leading-normal font-sans whitespace-pre-wrap">{item.message}</p>
+                              </div>
+                            </div>
+                          );
+                        } else if (item.type === "PUBLIC_REPLY") {
+                          const isAdminMsg = item.sender === "ADMIN" || item.sender === "admin";
+                          return (
+                            <div key={`pub-reply-${idx}`} className={`flex items-start gap-3 ${isAdminMsg ? 'flex-row-reverse' : ''}`}>
+                              <div className={`w-8 h-8 rounded-full flex items-center justify-center font-bold text-xs shrink-0 ${
+                                isAdminMsg 
+                                  ? 'bg-blue-600/10 border border-blue-500/15 text-blue-400' 
+                                  : 'bg-gray-500/10 border border-white/5 text-gray-400'
+                              }`}>
+                                {isAdminMsg ? "A" : (selectedTicket.email?.charAt(0).toUpperCase() || "U")}
+                              </div>
+                              <div className={`rounded-2xl p-4 max-w-[85%] text-xs space-y-1.5 shadow border text-left ${
+                                isAdminMsg 
+                                  ? 'bg-blue-600/5 border-blue-500/15 text-gray-100' 
+                                  : 'bg-white/5 border-white/5 text-gray-100'
+                              }`}>
+                                <div className="flex justify-between items-center gap-4 text-gray-500 text-[10px] font-mono">
+                                  <span className={`font-bold ${isAdminMsg ? 'text-blue-400' : 'text-gray-400'}`}>
+                                    {isAdminMsg ? 'Administrative Support Officer' : 'Client Message'}
+                                  </span>
+                                  <span>{item.timestamp ? new Date(item.timestamp).toLocaleTimeString() : ""}</span>
+                                </div>
+                                <p className="leading-normal font-sans whitespace-pre-wrap">{item.message}</p>
+                              </div>
+                            </div>
+                          );
+                        } else if (item.type === "INTERNAL_NOTE") {
+                          return (
+                            <div key={`internal-note-${idx}`} className="flex items-start gap-3 bg-fuchsia-950/20 border border-fuchsia-500/15 p-3.5 rounded-2xl max-w-[90%] mx-auto shadow-md">
+                              <div className="w-8 h-8 rounded-full bg-fuchsia-500/15 border border-fuchsia-500/20 flex items-center justify-center font-bold text-xs text-fuchsia-400 shrink-0">
+                                <Lock className="w-3.5 h-3.5" />
+                              </div>
+                              <div className="flex-grow text-left space-y-1">
+                                <div className="flex justify-between items-center gap-4 text-fuchsia-400 text-[10px] uppercase tracking-widest font-extrabold font-mono">
+                                  <span className="flex items-center gap-1.5">
+                                    <Lock className="w-3.5 h-3.5" /> Staff Private Note
+                                  </span>
+                                  <span className="text-fuchsia-500/50">{new Date(item.timestamp).toLocaleTimeString()}</span>
+                                </div>
+                                <p className="text-gray-200 text-xs leading-relaxed font-sans whitespace-pre-wrap">{item.message}</p>
+                              </div>
+                            </div>
+                          );
+                        }
+                        return null;
+                      })}
+                    </div>
+
+                    {/* Notes & Reply Action Switch Tabs */}
+                    <div className="flex border-b border-white/5 mb-4 shrink-0 mt-auto pt-4">
+                      <button
+                        type="button"
+                        onClick={() => setNotesActiveTab("PUBLIC")}
+                        className={`flex items-center gap-2 pb-2.5 px-4 text-xs font-bold transition-all border-b-2 cursor-pointer ${
+                          notesActiveTab === "PUBLIC"
+                            ? "border-blue-500 text-blue-400"
+                            : "border-transparent text-gray-500 hover:text-gray-300"
+                        }`}
+                      >
+                        <MessageSquare className="w-3.5 h-3.5" />
+                        <span>Public Response</span>
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setNotesActiveTab("INTERNAL")}
+                        className={`flex items-center gap-2 pb-2.5 px-4 text-xs font-bold transition-all border-b-2 cursor-pointer ${
+                          notesActiveTab === "INTERNAL"
+                            ? "border-fuchsia-500 text-fuchsia-400"
+                            : "border-transparent text-gray-500 hover:text-gray-300"
+                        }`}
+                      >
+                        <Lock className="w-3.5 h-3.5" />
+                        <span>Internal Private Note</span>
+                      </button>
+                    </div>
+
+                    {notesActiveTab === "PUBLIC" ? (
+                      <form onSubmit={handleAdminReply} className="pt-2">
+                        <div className="space-y-3">
+                          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 bg-black/30 p-2.5 rounded-xl border border-white/5">
+                            <span className="text-[9px] font-bold text-gray-500 uppercase tracking-widest pl-1">Canned Reply Templates:</span>
+                            <select
+                              onChange={(e) => {
+                                const val = e.target.value;
+                                if (val) {
+                                  setAdminReplyText(val);
+                                  e.target.value = ""; // reset
+                                }
+                              }}
+                              className="bg-black/80 border border-white/10 rounded-lg text-[10px] text-gray-300 font-bold py-1 px-2.5 focus:outline-none focus:border-blue-500/60 cursor-pointer min-w-[200px]"
+                            >
+                              <option value="">-- Apply saved response --</option>
+                              {SAVED_TEMPLATES.map((tmpl, idx) => (
+                                <option key={idx} value={tmpl.text}>{tmpl.title}</option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <textarea 
+                            rows={3} 
+                            value={adminReplyText}
+                            onChange={(e) => setAdminReplyText(e.target.value)}
+                            placeholder="Type administrative dispatch message. This will update the user instantly ..."
+                            className="w-full bg-[#111] border border-white/10 text-xs text-white rounded-xl p-3.5 focus:outline-none focus:border-blue-500/60 font-sans leading-normal leading-relaxed resize-none text-left"
+                            required
+                          />
+                          <div className="flex justify-between items-center gap-4">
+                            <span className="text-[10px] text-gray-500 font-sans italic text-left">
+                              Replying securely to {selectedTicket.email}
+                            </span>
+                            <button 
+                              type="submit"
+                              disabled={isSubmittingReply || !adminReplyText.trim()}
+                              className="bg-blue-600 hover:bg-blue-500 disabled:bg-blue-800 text-white font-bold text-xs py-2 px-5 rounded-xl cursor-pointer transition-all flex items-center justify-center gap-2"
+                            >
+                              {isSubmittingReply ? "Dispatching Message..." : "Publish Security Response"}
+                            </button>
+                          </div>
+                        </div>
+                      </form>
+                    ) : (
+                      <form onSubmit={handleSaveInternalNote} className="pt-2">
+                        <div className="space-y-3">
+                          <div className="bg-fuchsia-950/10 border border-fuchsia-500/10 p-3 rounded-xl flex items-center gap-2.5">
+                            <Lock className="w-4 h-4 text-fuchsia-400 shrink-0" />
+                            <div className="text-left">
+                              <p className="text-[10px] font-bold text-fuchsia-400 uppercase tracking-widest">Confidential Staff Recording Log</p>
+                              <p className="text-[10px] text-gray-500 leading-normal font-sans">
+                                Content submitted here will be persistent, but strictly hidden from the end-user.
+                              </p>
+                            </div>
+                          </div>
+
+                          <textarea 
+                            rows={3} 
+                            value={internalNoteText}
+                            onChange={(e) => setInternalNoteText(e.target.value)}
+                            placeholder="Type confidential ticket notes, context, status alerts, or server information..."
+                            className="w-full bg-[#111] border border-white/10 text-xs text-white rounded-xl p-3.5 focus:outline-none focus:border-fuchsia-500/60 font-sans leading-normal leading-relaxed resize-none text-left"
+                            required
+                          />
+                          <div className="flex justify-between items-center gap-4">
+                            <span className="text-[10px] text-gray-500 font-sans italic text-left flex items-center gap-1">
+                              <Lock className="w-3 h-3 text-fuchsia-500/65 animate-pulse" /> Private note #{(selectedTicket.internalNotes || []).length + 1}
+                            </span>
+                            <button 
+                              type="submit"
+                              disabled={isSubmittingNote || !internalNoteText.trim()}
+                              className="bg-fuchsia-700 hover:bg-fuchsia-600 disabled:bg-fuchsia-950 text-white font-bold text-xs py-2 px-5 rounded-xl cursor-pointer transition-all flex items-center justify-center gap-2"
+                            >
+                              {isSubmittingNote ? "Saving Note..." : "Save Private Note"}
+                            </button>
+                          </div>
+                        </div>
+                      </form>
+                    )}
+                  </div>
+                ) : (
+                  <div className="flex-grow flex flex-col items-center justify-center text-center p-8 self-center h-[500px]">
+                    <div className="p-4 bg-white/5 rounded-full mb-4 border border-white/5 text-gray-400">
+                      <Ticket className="w-10 h-10 text-gray-500" />
+                    </div>
+                    <h3 className="text-sm font-bold text-white uppercase tracking-widest mb-1">Administrative Support Central</h3>
+                    <p className="text-xs text-gray-500 max-w-sm mt-1 leading-relaxed">
+                      Select any incoming client ticket on the left menu thread to inspect message histories and dispatch secure administrative responses instantly.
+                    </p>
+                  </div>
+                )}
               </div>
 
             </div>

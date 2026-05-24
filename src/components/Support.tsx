@@ -51,7 +51,7 @@ export default function Support() {
   const [isCreating, setIsCreating] = useState(false);
   const [selectedTicket, setSelectedTicket] = useState<any>(null);
   
-  const [newTicket, setNewTicket] = useState({ subject: "", message: "" });
+  const [newTicket, setNewTicket] = useState({ subject: "", message: "", priority: "MEDIUM" });
   const [reply, setReply] = useState("");
 
   useEffect(() => {
@@ -101,12 +101,13 @@ export default function Support() {
         email: user.email,
         subject: newTicket.subject,
         message: newTicket.message,
+        priority: newTicket.priority,
         status: "OPEN",
         createdAt: serverTimestamp(),
         replies: []
       });
       setIsCreating(false);
-      setNewTicket({ subject: "", message: "" });
+      setNewTicket({ subject: "", message: "", priority: "MEDIUM" });
     } catch (err) {
       handleFirestoreError(err, OperationType.WRITE, path);
     } finally {
@@ -178,13 +179,22 @@ export default function Support() {
                         className={`w-full text-left p-6 border-b border-white/5 transition-all hover:bg-white/[0.02] ${selectedTicket?.id === ticket.id ? 'bg-white/[0.05] border-l-4 border-l-blue-500' : ''}`}
                       >
                         <div className="flex justify-between items-start mb-2">
-                          <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${
-                            ticket.status === 'OPEN' ? 'bg-blue-500/10 text-blue-400' :
-                            ticket.status === 'REPLIED' ? 'bg-green-500/10 text-green-400' :
-                            'bg-gray-500/10 text-gray-400'
-                          }`}>
-                            {ticket.status}
-                          </span>
+                          <div className="flex gap-2 items-center">
+                            <span className={`text-[9px] font-bold px-1.5 py-0.5 rounded font-mono border ${
+                              ticket.priority === 'HIGH' ? 'bg-red-500/10 text-red-400 border-red-500/20' :
+                              ticket.priority === 'MEDIUM' ? 'bg-amber-500/10 text-amber-505 border-amber-500/20' :
+                              'bg-gray-500/10 text-gray-400 border-white/5'
+                            }`}>
+                              {ticket.priority || 'MEDIUM'}
+                            </span>
+                            <span className={`text-[10px] uppercase font-bold px-2 py-0.5 rounded ${
+                              ticket.status === 'OPEN' ? 'bg-blue-500/10 text-blue-400' :
+                              ticket.status === 'REPLIED' ? 'bg-green-500/10 text-green-400' :
+                              'bg-gray-500/10 text-gray-400'
+                            }`}>
+                              {ticket.status}
+                            </span>
+                          </div>
                           <span className="text-[10px] text-gray-500 font-mono">
                             {ticket.createdAt?.toDate().toLocaleDateString()}
                           </span>
@@ -316,6 +326,18 @@ export default function Support() {
                     onChange={(e) => setNewTicket({...newTicket, subject: e.target.value})}
                     className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-4 focus:border-blue-500 outline-none transition-all"
                   />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-xs font-bold uppercase tracking-widest text-gray-500">Priority (LOW / MEDIUM / HIGH)</label>
+                  <select
+                    value={newTicket.priority}
+                    onChange={(e) => setNewTicket({...newTicket, priority: e.target.value})}
+                    className="w-full bg-black border border-white/10 rounded-xl px-4 py-4 focus:border-blue-500 outline-none transition-all cursor-pointer text-sm text-gray-300"
+                  >
+                    <option value="LOW" className="bg-[#111]">LOW</option>
+                    <option value="MEDIUM" className="bg-[#111]">MEDIUM</option>
+                    <option value="HIGH" className="bg-[#111]">HIGH</option>
+                  </select>
                 </div>
                 <div className="space-y-2">
                   <label className="text-xs font-bold uppercase tracking-widest text-gray-500">Message</label>
