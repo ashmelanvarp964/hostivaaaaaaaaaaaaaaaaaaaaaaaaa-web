@@ -42,12 +42,12 @@ function activateMockDb() {
       userId: "mock_user_1",
       email: "gamer_pro@gmail.com",
       subject: "Pterodactyl Node connection error",
-      message: "Hi, my Minecraft server says offline in my dashboard but I can see it in cp.hostivaa.xyz. Please fix.",
+      message: "Hi, my Minecraft server says offline in my dashboard but I can see it in panel.hostivaa.xyz. Please fix.",
       priority: "HIGH",
       status: "OPEN",
       createdAt: new Date(Date.now() - 3600000 * 4).toISOString(), // 4h ago
       replies: [
-        { sender: "USER", message: "Hi, my Minecraft server says offline in my dashboard but I can see it in cp.hostivaa.xyz. Please fix.", timestamp: new Date(Date.now() - 3600000 * 4).toISOString() }
+        { sender: "USER", message: "Hi, my Minecraft server says offline in my dashboard but I can see it in panel.hostivaa.xyz. Please fix.", timestamp: new Date(Date.now() - 3600000 * 4).toISOString() }
       ]
     },
     "ticket_2": {
@@ -72,7 +72,7 @@ function activateMockDb() {
       createdAt: new Date(Date.now() - 3600000 * 24).toISOString(), // 24h ago
       replies: [
         { sender: "USER", message: "Paid ₹149 for Ryzen starter pack but cannot find anything in central acc. Status shows CLAIMED.", timestamp: new Date(Date.now() - 3600000 * 24).toISOString() },
-        { sender: "ADMIN", message: "Hello! We verified your payment. Please log in to cp.hostivaa.xyz with your registered email.", timestamp: new Date(Date.now() - 3600000 * 23).toISOString() }
+        { sender: "ADMIN", message: "Hello! We verified your payment. Please log in to panel.hostivaa.xyz with your registered email.", timestamp: new Date(Date.now() - 3600000 * 23).toISOString() }
       ]
     }
   };
@@ -752,7 +752,7 @@ async function startServer() {
       return res.status(400).json({ success: false, error: "Email and password are required" });
     }
 
-    const PTERO_URL = process.env.PTERODACTYL_URL || "https://cp.hostivaa.xyz";
+    const PTERO_URL = process.env.PTERODACTYL_URL || "https://panel.hostivaa.xyz";
     const PTERO_API_KEY = process.env.PTERODACTYL_API_KEY || "ptla_idokfsWF4MZ1IYVCTlYrgiSvavw8vFvqaazsOrwlv7S";
 
     const pteroClient = axios.create({
@@ -840,7 +840,7 @@ async function startServer() {
     const vite_key = normalize(process.env.VITE_RAZORPAY_KEY_ID);
     
     // Ptero Check
-    const ptero_url = process.env.PTERODACTYL_URL || "https://cp.hostivaa.xyz";
+    const ptero_url = process.env.PTERODACTYL_URL || "https://panel.hostivaa.xyz";
     const ptero_key = process.env.PTERODACTYL_API_KEY;
     
     let ptero_status = "Unknown";
@@ -1227,7 +1227,7 @@ async function startServer() {
 
   // Pterodactyl Provisioning Logic
   async function provisionServer(email: string, planId: string) {
-    const PTERO_URL = process.env.PTERODACTYL_URL || "https://cp.hostivaa.xyz";
+    const PTERO_URL = process.env.PTERODACTYL_URL || "https://panel.hostivaa.xyz";
     const PTERO_API_KEY = process.env.PTERODACTYL_API_KEY || "ptla_idokfsWF4MZ1IYVCTlYrgiSvavw8vFvqaazsOrwlv7S";
     
     // Safe plan lookup with fallback to budget-classic if plan ID is invalid or budget-starter
@@ -1280,7 +1280,7 @@ async function startServer() {
       const cpu = parseInt(cpuVal) || 100;
 
       const performanceNode = process.env.PTERODACTYL_PERFORMANCE_NODE_ID || "1";
-      const budgetNode = process.env.PTERODACTYL_BUDGET_NODE_ID || "9";
+      const budgetNode = process.env.PTERODACTYL_BUDGET_NODE_ID || "2";
       const nodeId = plan.specs.nodeId || (plan.category === "performance" ? parseInt(performanceNode) : parseInt(budgetNode));
       const locationId = plan.specs.locationId || 1;
 
@@ -1392,7 +1392,7 @@ Client Dashboard Login: ${process.env.APP_URL || "https://hostivaa.xyz"}/login
         },
       });
 
-      const panelUrl = process.env.PTERODACTYL_URL || "https://cp.hostivaa.xyz";
+      const panelUrl = process.env.PTERODACTYL_URL || "https://panel.hostivaa.xyz";
 
       const mailOptions = {
         from,

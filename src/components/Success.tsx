@@ -162,7 +162,7 @@ export default function Success() {
             </div>
 
             <a 
-              href="https://cp.hostivaa.xyz"
+              href="https://panel.hostivaa.xyz"
               target="_blank"
               rel="noopener noreferrer"
               className="w-full py-2.5 bg-blue-600 hover:bg-blue-500 text-white font-bold text-xs rounded-xl transition-all shadow-lg shadow-blue-500/15 flex items-center justify-center gap-2 uppercase tracking-wider cursor-pointer"

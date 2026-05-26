@@ -87,7 +87,7 @@ const SAVED_TEMPLATES = [
 We have initiated a core panel authentication key reset procedure for your account.
 
 Please perform the following steps:
-1. Navigate to the Game Control Panel (https://cp.hostivaa.xyz)
+1. Navigate to the Game Control Panel (https://panel.hostivaa.xyz)
 2. Select the "Forgot Password / Reset Link" option.
 3. Check your incoming spam or junk inbox folder for a secure validation token.
 
@@ -887,7 +887,7 @@ export default function AdminPanel() {
                   </p>
                 </div>
                 <div className="text-[10px] text-gray-500 mt-4">
-                  Synced inside <span className="text-gray-300 font-mono">cp.hostivaa.xyz</span>
+                  Synced inside <span className="text-gray-300 font-mono">panel.hostivaa.xyz</span>
                 </div>
               </div>
 
@@ -1030,8 +1030,8 @@ export default function AdminPanel() {
                   <div className="space-y-3.5 text-xs text-gray-300">
                     <div className="flex justify-between py-2 border-b border-white/5">
                       <span className="text-gray-500">Target Panel URL:</span>
-                      <a href="https://cp.hostivaa.xyz" target="_blank" rel="noreferrer" className="text-blue-400 font-semibold hover:underline flex items-center gap-1 font-mono">
-                        cp.hostivaa.xyz <ExternalLink className="w-3" />
+                      <a href="https://panel.hostivaa.xyz" target="_blank" rel="noreferrer" className="text-blue-400 font-semibold hover:underline flex items-center gap-1 font-mono">
+                        panel.hostivaa.xyz <ExternalLink className="w-3" />
                       </a>
                     </div>
                     <div className="flex justify-between py-2 border-b border-white/5">
@@ -1040,7 +1040,7 @@ export default function AdminPanel() {
                     </div>
                     <div className="flex justify-between py-2 border-b border-white/5">
                       <span className="text-gray-500">Intel Budget Node ID:</span>
-                      <span className="text-white font-mono">Node 9</span>
+                      <span className="text-white font-mono">Node 2</span>
                     </div>
                     <div className="flex justify-between py-2 border-b border-white/5">
                       <span className="text-gray-500">Ryzen Premium Node ID:</span>
@@ -1054,7 +1054,7 @@ export default function AdminPanel() {
                 </div>
 
                 <div className="mt-6 pt-6 border-t border-white/5 bg-blue-500/5 p-4 rounded-xl border border-blue-500/10 text-[11px] text-blue-300">
-                  <strong>Automatic Server Creation:</strong> Every successfully confirmed Razorpay Webhook or client verification triggers zero-delay instance generation. If cp.hostivaa.xyz is offline, a backup simulated container node triggers immediately so game panels do not block client gameplay.
+                  <strong>Automatic Server Creation:</strong> Every successfully confirmed Razorpay Webhook or client verification triggers zero-delay instance generation. If panel.hostivaa.xyz is offline, a backup simulated container node triggers immediately so game panels do not block client gameplay.
                 </div>
               </div>
             </div>

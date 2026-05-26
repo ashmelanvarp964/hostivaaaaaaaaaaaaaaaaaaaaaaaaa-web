@@ -179,7 +179,7 @@ export default function Billing() {
           </div>
           <div className="flex items-center gap-3">
             <a 
-              href="https://cp.hostivaa.xyz" 
+              href="https://panel.hostivaa.xyz" 
               target="_blank" 
               rel="noopener noreferrer" 
               className="px-5 py-3 rounded-xl bg-blue-600 hover:bg-blue-500 transition-all text-xs font-bold uppercase tracking-wider flex items-center gap-2 glow-blue"
@@ -372,7 +372,7 @@ export default function Billing() {
                         {/* Actions */}
                         <div className="flex md:flex-col gap-2.5 shrink-0 justify-end">
                           <a 
-                            href="https://cp.hostivaa.xyz" 
+                            href="https://panel.hostivaa.xyz" 
                             target="_blank" 
                             rel="noopener noreferrer" 
                             className="bg-white/5 hover:bg-white/10 border border-white/10 px-4 py-3 rounded-xl text-center text-xs font-bold transition-all flex items-center justify-center gap-2 text-white"
